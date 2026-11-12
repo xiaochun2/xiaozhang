@@ -16,7 +16,7 @@
     { id: "med", name: "医学", role: "社会服务，太弱会被评估点名" }
   ];
 
-  const RANKS = ["讲师", "副教授", "教授", "学科带头人"];
+  const RANKS = ["助教", "讲师", "副教授", "教授"];
   const TIERS = [
     { name: "大专", short: "高职" },
     { name: "本科", short: "本科" },
@@ -45,6 +45,16 @@
     const list = deptTeachers(state, deptId);
     return list.sort((a, b) => b.rank - a.rank || b.talent - a.talent)[0] || null;
   }
+  function isChair(state, teacher) {
+    if (!teacher || teacher.rank < 2) return false;
+    const forced = state.chairOf && state.chairOf[teacher.dept];
+    if (forced) {
+      const named = teacherById(state, forced);
+      if (named && named.rank >= 2) return forced === teacher.id;
+    }
+    const lead = leadOf(state, teacher.dept);
+    return !!(lead && lead.id === teacher.id);
+  }
   function avgDept(state) {
     return state.depts.reduce((s, d) => s + d.strength, 0) / state.depts.length;
   }
@@ -57,9 +67,52 @@
     return stem + "大学";
   }
 
-  function makeTeacher(deptId, extra) {
+  const PEDIGREES = [
+    { id: 0, schools: ["本校"], degree: "本科" },
+    { id: 1, schools: ["江城学院", "南岸学院", "临川学院"], degree: "硕士" },
+    { id: 2, schools: ["滨江大学", "澄江大学", "东川大学"], degree: "博士" },
+    { id: 3, schools: ["京华大学", "沪上大学", "岭南大学"], degree: "博士" },
+    { id: 4, schools: ["剑桥合作校", "海德堡合作校", "东京合作校"], degree: "博士" }
+  ];
+  const PEDIGREE_WEIGHTS = [
+    [50, 32, 14, 4, 0],
+    [24, 34, 26, 12, 4],
+    [8, 20, 32, 26, 14],
+    [2, 10, 24, 34, 30]
+  ];
+  const SKILLS = [
+    { id: "research", name: "科研", stat: "academic", label: "学术" },
+    { id: "class", name: "上课", stat: "teaching", label: "教学" },
+    { id: "world", name: "国际", stat: "international", label: "国际影响" },
+    { id: "enroll", name: "招生", stat: "enrollment", label: "报考" },
+    { id: "rule", name: "学工", stat: "compliance", label: "风纪" }
+  ];
+
+  function rollPedigree(tier) {
+    const weights = PEDIGREE_WEIGHTS[Math.max(0, Math.min(3, tier || 0))];
+    let roll = rand(weights.reduce(function (sum, n) { return sum + n; }, 0));
+    for (let i = 0; i < weights.length; i++) {
+      roll -= weights[i];
+      if (roll < 0) return PEDIGREES[i];
+    }
+    return PEDIGREES[0];
+  }
+
+  function skillById(id) {
+    return SKILLS.find(function (s) { return s.id === id; }) || SKILLS[0];
+  }
+
+  function giveBackground(teacher, tier) {
+    const pedigree = rollPedigree(tier);
+    teacher.pedigree = pedigree.id;
+    teacher.school = pick(pedigree.schools);
+    teacher.degree = pedigree.degree;
+    teacher.skill = pick(SKILLS).id;
+  }
+
+  function makeTeacher(deptId, extra, tier) {
     const greed = extra && extra.greed != null ? extra.greed : rand(100);
-    return Object.assign({
+    const teacher = Object.assign({
       id: uid(),
       name: pick(SURNAMES) + pick(GIVEN),
       dept: deptId,
@@ -70,6 +123,8 @@
       leverage: false,
       skimming: false
     }, extra || {});
+    if (!teacher.school) giveBackground(teacher, tier || 0);
+    return teacher;
   }
 
   function createState(baseName) {
@@ -334,8 +389,10 @@
 
 function item(label, value, need, below) {
   const ok = below ? value < need : value >= need;
-  const shown = below ? (ok ? "达标" : "未达标") : Math.round(value) + " / " + need;
-  return { label, ok, shown };
+  const shown = below
+    ? Math.round(value) + " / 低于 " + need
+    : Math.round(value) + " / " + need;
+  return { label, ok, shown, value: value, need: need, below: !!below };
 }
 
   function gateReady(state) {
@@ -367,6 +424,7 @@ function item(label, value, need, below) {
 
   function removeTeacher(state, teacher, deptDrop) {
     rememberProf(state, teacher, "left");
+    if (state.chairOf && state.chairOf[teacher.dept] === teacher.id) delete state.chairOf[teacher.dept];
     bumpDept(state, teacher.dept, deptDrop);
     state.teachers = state.teachers.filter((t) => t.id !== teacher.id);
     state.resigns += 1;
@@ -411,14 +469,19 @@ function item(label, value, need, below) {
 
   function actionsCatalog(state) {
     const g = gates(state);
+    const focus = teachFocus(state);
+    const cs = deptById(state, "cs").strength;
     return [
-      { id: "build", name: "学科建设", desc: "一年只有一个名额。养这个系，没排上的系会薄。", cost: 8, once: true },
-      { id: "recruit", name: "引进人才", desc: "高薪挖一个人。贪不贪，见面才知道。", cost: 14, once: false },
-      { id: "world", name: "国际合作", desc: "交换、联培，榜单上能看见的那种。", cost: 10, once: false },
-      { id: "donate", name: "校友募捐", desc: "干净的钱，来得不快。", cost: 0, once: true },
+      { id: "build", name: "学科建设", desc: "一年只建一个系。点到的厚，旁边有的系会薄。", cost: 8, once: true },
+      { id: "recruit", name: "引进人才", desc: "出身和擅长决定拉动哪一项。学校越高，好出身越多，拉动越大。贪的来做副教授。", cost: 14, once: false },
+      { id: "world", name: "国际合作", desc: cs >= 50 ? "交换、联培，榜单上能看见的那种。" : "计算机还不够强，签了也更像访问。", cost: 10, once: false },
+      { id: "donate", name: "校友募捐", desc: "经费进来。最短的系薄一截。", cost: 0, once: true },
+      { id: "office", name: "校长办公会", desc: "一年一次。经费、处分或一份文件，只能拍一件。", cost: 0, once: true },
+      { id: "gov", name: "找政府", desc: "要专项或建设名额。材料会被多看一眼。", cost: 0, once: true },
+      { id: "students", name: "学生事务", desc: "处分或就业。今年不在学生面前出现，舆论会更重。", cost: 0, once: true },
       { id: "inspect", name: "内部巡察", desc: "想把把柄切掉。对方也会察觉。", cost: 4, once: true },
-      { id: "teach", name: "教学评估", desc: "补升本最看的那一栏。", cost: 6, once: true },
-      { id: "apply", name: g ? "申报" + g.title : "已是顶尖", desc: g ? "条件够了才递材料。" : "这一档已经到顶。", cost: g ? g.cost : 0, once: true, disabled: !g }
+      { id: "teach", name: "教学评估", desc: focus.id === "teaching" ? "补升本最看的教学。学术不动。" : "补" + focus.label + "。教学不动。", cost: 6, once: true },
+      { id: "apply", name: g ? "申报" + g.title : "已是 985", desc: g ? "过了：" + tierPrize(state.tier + 1).lines.join("，") + "。把柄不动。" : "这一档已经到顶。", cost: g ? g.cost : 0, once: true, disabled: !g }
     ];
   }
 
@@ -438,6 +501,9 @@ function item(label, value, need, below) {
       return;
     }
     if (id === "apply") return doApply(state);
+    if (id === "office") return openOffice(state);
+    if (id === "gov") return openGov(state);
+    if (id === "students") return openStudents(state);
     if (id === "build") return doBuild(state, arg);
     if (id === "recruit") return doRecruit(state, arg);
     if (id === "world") return doWorld(state);
@@ -465,10 +531,19 @@ function item(label, value, need, below) {
     openQueue(state, [card]);
   }
 
+  function recruitOddsLine(tier) {
+    if (tier <= 0) return "现在是大专。人多半从本校或普通学院来，拉动小。";
+    if (tier === 1) return "现在是本科。普通大学的博士会多起来，拉动比大专大。";
+    if (tier === 2) return "现在是 211。985 和海外博士开始常见，拉动更大。";
+    return "现在是 985。海外和 985 的博士最常见，拉动最大。";
+  }
+
   function deptPick(state, action) {
     return scene(
       action === "build" ? "建设哪个系" : "人才引进到哪个系",
-      "每个系影响的东西不一样。理学卡升格，计算机拉排名，经管出钱，医学太弱会被点名，文法会把舆论放大。",
+      action === "build"
+        ? "每个系影响的东西不一样。理学卡升格，计算机拉排名，经管出钱，医学太弱会被点名，文法会把舆论放大。"
+        : recruitOddsLine(state.tier) + "擅长科研抬学术，上课抬教学，国际抬国际影响，招生抬报考，学工抬风纪。",
       state.depts.map((d) => {
         const meta = DEPTS.find((x) => x.id === d.id);
         const empty = deptTeachers(state, d.id).length ? "" : " · 没有带头人";
@@ -479,9 +554,9 @@ function item(label, value, need, below) {
 
   function neglectDrops(focusId) {
   const stem = focusId === "sci" || focusId === "cs" || focusId === "eng";
-  if (stem) return { hum: 2, med: 2 };
-  if (focusId === "biz") return { sci: 2, cs: 1 };
-  return { sci: 2, eng: 1 };
+  if (stem) return { hum: 4, med: 4 };
+  if (focusId === "biz") return { sci: 4, cs: 2 };
+  return { sci: 4, eng: 2 };
 }
 
 function doBuild(state, deptId) {
@@ -507,22 +582,42 @@ function doBuild(state, deptId) {
     ));
   }
 
+  function hireEffect(teacher) {
+    const pedigree = teacher.pedigree || 0;
+    const skill = skillById(teacher.skill);
+    return {
+      dept: 2 + pedigree + (teacher.rank >= 2 ? 2 : 0),
+      skill,
+      skillStep: 1 + pedigree
+    };
+  }
+
   function doRecruit(state, deptId) {
     spendAction(state, "recruit", 14);
     const greed = rand(100);
-    const teacher = makeTeacher(deptId, { talent: 68 + rand(28), greed, rank: greed > 78 ? 2 : 2 });
-    state.teachers.push(teacher);
-    bumpDept(state, deptId, 5);
-    addStat(state, "academic", 2);
-    const meta = DEPTS.find((d) => d.id === deptId);
-    note(state, teacher.name + "加入" + meta.name + "。");
     const greedy = greed >= 72;
+    const teacher = makeTeacher(deptId, { talent: 68 + rand(28), greed, rank: greedy ? 2 : 1 }, state.tier);
+    state.teachers.push(teacher);
+    const meta = DEPTS.find((d) => d.id === deptId);
+    const effect = hireEffect(teacher);
+    bumpDept(state, deptId, effect.dept);
+    addStat(state, effect.skill.stat, effect.skillStep);
+    const who = teacher.name + "，" + teacher.school + teacher.degree + "，擅长" + effect.skill.name + "。";
+    const moved = meta.name + " +" + effect.dept + "，" + effect.skill.label + " +" + effect.skillStep + "。";
+    const audit = "把柄风险 +6，风纪 -3。";
+    if (greedy) {
+      addStat(state, "heat", 6);
+      addStat(state, "compliance", -3);
+      note(state, who + "以副教授引进" + meta.name + "。" + moved + audit);
+    } else {
+      note(state, who + "以讲师引进" + meta.name + "。" + moved);
+    }
     sync(state);
     finishAction(state, scene(
-      greedy ? "人来了，话也多" : "引进了一位能干活的人",
+      greedy ? "副教授来了，账不好看" : "引进了一位讲师",
       greedy
-        ? teacher.name + "的履历够用。饭局里他已经在问，特殊人才的安家费能不能走一张不好审计的表。"
-        : teacher.name + "进了" + meta.name + "。短期内这个系会好带一些。",
+        ? who + "以副教授进了" + meta.name + "。" + moved + audit + "教授要以后评。"
+        : who + "以讲师进了" + meta.name + "。" + moved + "没有留下不好审计的账。",
       cont()
     ));
   }
@@ -568,7 +663,7 @@ function doBuild(state, deptId) {
   function meetingCandidates(state, deptId) {
     const meta = DEPTS.find((d) => d.id === deptId);
     const shown = deptTeachers(state, deptId).filter((t) => t.rank < 3).sort((a, b) => b.talent - a.talent).slice(0, 3);
-    if (!shown.length) return scene(meta.name + "没有可评的人", "这个系的人都已经是学科带头人。", cont());
+    if (!shown.length) return scene(meta.name + "没有可评的人", "这个系的人都已经是教授。职称不往下降。", cont());
     return scene(
       meta.name + "职称评审",
       "名额只有一个。材料上写着成果，也写着这个人会不会把信封夹进来。",
@@ -590,7 +685,7 @@ function doBuild(state, deptId) {
         waiting
       };
     }).filter((choice) => choice.waiting);
-    if (!choices.length) return scene("今年没有可评的人", "在任的人都已经是学科带头人。", cont());
+    if (!choices.length) return scene("今年没有可评的人", "在任的人都已经是教授。职称不往下降。", cont());
     return scene(
       "今年评哪个系",
       "双年的名额只有一个。评谁，这个系就会动一动；没评的系，今年靠建设名额。",
@@ -622,19 +717,45 @@ function doBuild(state, deptId) {
     const biz = deptById(state, "biz").strength;
     const money = 12 + Math.round((biz - 30) * 0.2);
     state.funds = clamp(state.funds + money, 0, 220);
-    addStat(state, "reputation", biz >= 50 ? 4 : 2);
-    note(state, "校友这一年进来 " + money + " 点经费。");
+    const weak = state.depts.slice().sort((a, b) => a.strength - b.strength)[0];
+    const weakName = DEPTS.find((d) => d.id === weak.id).name;
+    bumpDept(state, weak.id, -4);
+    note(state, "校友这一年进来 " + money + " 点经费。" + weakName + "薄了 4。");
     sync(state);
-    finishAction(state, scene("钱是干净的", "经管越强，这份名单越好看。没有人顺便把信封留下。", cont()));
+    finishAction(state, scene(
+      "钱是干净的",
+      "经管越强，这份名单越好看。没有信封。这一年少做的那件事，落在最短的" + weakName + "上。",
+      cont()
+    ));
+  }
+
+  function teachFocus(state) {
+    if (state.tier <= 0) return { id: "teaching", label: "教学", value: state.teaching };
+    const sci = deptById(state, "sci").strength;
+    return [
+      { id: "academic", label: "学术", value: state.academic },
+      { id: "sci", label: "理学", value: sci },
+      { id: "compliance", label: "风纪", value: state.compliance },
+      { id: "international", label: "国际影响", value: state.international }
+    ].sort((a, b) => a.value - b.value)[0];
   }
 
   function doTeach(state) {
     spendAction(state, "teach", 6);
-    addStat(state, "teaching", 8);
-    addStat(state, "reputation", 2);
-    note(state, "教学评估过了一轮。");
+    const focus = teachFocus(state);
+    if (focus.id === "teaching") {
+      addStat(state, "teaching", 8);
+      addStat(state, "reputation", 2);
+      note(state, "教学评估过了一轮。学术没有动。");
+      sync(state);
+      finishAction(state, scene("课堂被看过了", "教学抬了一截。升本看的就是这个。学术这一栏不动。", cont()));
+      return;
+    }
+    if (focus.id === "sci") bumpDept(state, "sci", 5);
+    else addStat(state, focus.id, focus.id === "international" ? 5 : 6);
+    note(state, "评估改去补" + focus.label + "。教学没有动。");
     sync(state);
-    finishAction(state, scene("课堂被看过了", "升本看的就是这个。顶尖学府不会只看这个。", cont()));
+    finishAction(state, scene("评估改了方向", focus.label + "抬了一截。教学这一栏不动。", cont()));
   }
 
   function doInspect(state) {
@@ -664,22 +785,183 @@ function doBuild(state, deptId) {
     finishAction(state, scene("巡察结束", body, cont()));
   }
 
+  function otherStrong(state, id) {
+    return state.depts.filter((d) => d.id !== id).sort((a, b) => b.strength - a.strength)[0];
+  }
+
+  function openOffice(state) {
+    openQueue(state, [scene(
+      "校长办公会",
+      "今天只能拍一件。经费、处分、一份还没签的文件，动了哪件，另一边就要让。",
+      [
+        { id: "office:tilt", label: "经费倾向一个系", detail: "那个系厚一截，最强的另一个系薄一截" },
+        { id: "office:punish", label: "压下一份处分", detail: "报考上去，风纪下去" },
+        { id: "office:file", label: "文件先压着", detail: "没有系被削。事情还在桌上，风险上去，声誉掉一点" }
+      ].concat([{ id: "cont", label: "返回" }])
+    )]);
+  }
+
+  function officePick(state) {
+    return scene(
+      "经费倾向哪个系",
+      "厚的是它。最强的另一个系要让出一截。",
+      state.depts.map((d) => {
+        const meta = DEPTS.find((x) => x.id === d.id);
+        return { id: "office-dept:" + d.id, label: meta.name + "  " + d.strength, detail: meta.role };
+      }).concat([{ id: "office:back", label: "返回" }])
+    );
+  }
+
+  function doOfficeTilt(state, deptId) {
+    spendAction(state, "office", 0);
+    const meta = DEPTS.find((d) => d.id === deptId);
+    const other = otherStrong(state, deptId);
+    const otherName = DEPTS.find((d) => d.id === other.id).name;
+    bumpDept(state, deptId, 6);
+    bumpDept(state, other.id, -4);
+    note(state, "办公会把经费倾向" + meta.name + "。" + otherName + "薄了 4。");
+    sync(state);
+    finishAction(state, scene(meta.name + "拿到了这笔", otherName + "是现在最强的另一个系，会上让出了一截。", cont()));
+  }
+
+  function doOfficePunish(state) {
+    spendAction(state, "office", 0);
+    addStat(state, "enrollment", 4);
+    addStat(state, "compliance", -6);
+    note(state, "一份处分被压下。报考上来，风纪下去。");
+    sync(state);
+    finishAction(state, scene("处分没有发出去", "学生还在。报考热度上来了。风纪那一栏不好看。", cont()));
+  }
+
+  function doOfficeFile(state) {
+    spendAction(state, "office", 0);
+    addStat(state, "heat", 6);
+    addStat(state, "reputation", -3);
+    note(state, "一份文件压在桌上。没有系被削，风险上去了。");
+    sync(state);
+    finishAction(state, scene("先不签", "会上没有点名哪个系，也没有动处分。事情还在。外面已经有人在问这份文件。", cont()));
+  }
+
+  function openGov(state) {
+    openQueue(state, [scene(
+      "找政府",
+      "专项和建设名额都能要。要到了，材料会被多看一眼。这和校友的钱不是一笔。",
+      [
+        { id: "gov:money", label: "要一笔专项", detail: "经费进来，把柄风险上去" },
+        { id: "gov:build", label: "要一个建设名额", detail: "一个系厚一截，风险也上去。不花学校自己的建设费" }
+      ].concat([{ id: "cont", label: "返回" }])
+    )]);
+  }
+
+  function govPick(state) {
+    return scene(
+      "名额给哪个系",
+      "政府的名额直接落到这个系。把柄风险一起记上。",
+      state.depts.map((d) => {
+        const meta = DEPTS.find((x) => x.id === d.id);
+        return { id: "gov-dept:" + d.id, label: meta.name + "  " + d.strength, detail: meta.role };
+      }).concat([{ id: "gov:back", label: "返回" }])
+    );
+  }
+
+  function doGovMoney(state) {
+    spendAction(state, "gov", 0);
+    state.funds = clamp(state.funds + 14, 0, 220);
+    addStat(state, "heat", 8);
+    note(state, "专项经费进来。材料会被多看一眼。");
+    sync(state);
+    finishAction(state, scene("专项批了", "账上多了一笔。来路要写进汇报，把柄风险上去。", cont()));
+  }
+
+  function doGovBuild(state, deptId) {
+    spendAction(state, "gov", 0);
+    const meta = DEPTS.find((d) => d.id === deptId);
+    bumpDept(state, deptId, 6);
+    addStat(state, "heat", 6);
+    note(state, "政府的建设名额进了" + meta.name + "。风险上去了。");
+    sync(state);
+    finishAction(state, scene(meta.name + "用了这个名额", "没有动学校自己的建设费。名额从上面来，看材料的人也会多看一眼。", cont()));
+  }
+
+  function openStudents(state) {
+    openQueue(state, [scene(
+      "学生事务",
+      "食堂和校报都看过了。处分和就业，今天得有一个说法。今年要是不在学生面前出现，后面的舆论会更重。",
+      [
+        { id: "stu:punish", label: "按规矩处分", detail: "风纪上升，报考下去" },
+        { id: "stu:jobs", label: "保就业", detail: "报考上升。钱够就出账，不够声誉掉一点" }
+      ].concat([{ id: "cont", label: "返回" }])
+    )]);
+  }
+
+  function doStudents(state, how) {
+    spendAction(state, "students", 0);
+    state.facedStudents = true;
+    if (how === "punish") {
+      addStat(state, "compliance", 6);
+      addStat(state, "enrollment", -4);
+      note(state, "处分按规矩发出去了。风纪回来，报考掉了一截。");
+      sync(state);
+      finishAction(state, scene("处分发出去了", "你在场。风纪抬了一截，报考热度下去。", cont()));
+      return;
+    }
+    if (state.funds >= 8) state.funds -= 8;
+    else addStat(state, "reputation", -3);
+    addStat(state, "enrollment", 5);
+    note(state, "就业的钱拨出去了。报考热度回来一点。");
+    sync(state);
+    finishAction(state, scene("去保了就业", "你在招聘会上出现过。报考热度上来。钱够，账上少一笔；不够，声誉掉一点。", cont()));
+  }
+
+  function tierPrize(nextTier) {
+    if (nextTier === 1) {
+      return {
+        grant: "省里按本科拨了一笔开办费。",
+        lines: ["经费 +18", "报考 +4"],
+        apply: function (state) {
+          state.funds = clamp(state.funds + 18, 0, 220);
+          addStat(state, "enrollment", 4);
+        }
+      };
+    }
+    if (nextTier === 2) {
+      return {
+        grant: "211专项落到理学和国际合作上。",
+        lines: ["理学 +6", "国际影响 +8", "经费 +12"],
+        apply: function (state) {
+          bumpDept(state, "sci", 6);
+          addStat(state, "international", 8);
+          state.funds = clamp(state.funds + 12, 0, 220);
+        }
+      };
+    }
+    return {
+      grant: "抬头换成 985。",
+      lines: ["国际影响 +10", "学术 +6", "声誉 +6"],
+      apply: function (state) {
+        addStat(state, "international", 10);
+        addStat(state, "academic", 6);
+        addStat(state, "reputation", 6);
+      }
+    };
+  }
+
   function doApply(state) {
     const g = gates(state);
     if (!g) return;
     if (!gateReady(state)) {
-      openQueue(state, [scene("材料还递不出去", "右边和左边的条件里还有没达到的。这次不消耗行动。", cont("返回"))]);
+      openQueue(state, [scene("材料还递不出去", "申报清单里还有没达到的。这次不消耗行动。", cont("返回"))]);
       return;
     }
+    const prize = tierPrize(state.tier + 1);
     spendAction(state, "apply", g.cost);
     state.tier += 1;
     state.schoolName = fullName(state.baseName, state.tier);
-    addStat(state, "reputation", 8);
-    addStat(state, "academic", 3);
-    note(state, "学校升到「" + TIERS[state.tier].name + "」。");
+    prize.apply(state);
+    note(state, "学校升到「" + TIERS[state.tier].name + "」。" + prize.lines.join("，") + "。");
     sync(state);
     const title = state.tier === 1 ? "升本通过" : state.tier === 2 ? "进入 211 这一档" : "进入 985 这一档";
-    finishAction(state, scene(title, "牌子可以换。后面的榜单、学科和把柄，都不会因为揭牌自动消失。", cont("看今年的后半段")));
+    finishAction(state, scene(title, prize.grant + prize.lines.join("，") + "。把柄没有洗掉。", cont()));
   }
 
 function yearEvents(state) {
@@ -700,9 +982,109 @@ function yearEvents(state) {
     }
   }
   if (story) events.push(story);
-  else if (!pressure && Math.random() < 0.8) events.push(pick(ambientEvents())(state));
+  else if (!pressure) events.push(pick(ambientEvents())(state));
+  events.push(yearEndCard(state));
   return events.filter(Boolean);
 }
+
+  function yearEndCard(state) {
+    if (state.year < 4) return null;
+    if ((state.heat >= 55 || state.wound >= 16) && state.year - (state.lastParty || 0) >= 2) {
+      state.lastParty = state.year;
+      return partyCard(state);
+    }
+    if (state.year === 6 || state.year === 11) return congressCard(state);
+    if (state.year === 4 || state.year === 10 || state.year === 14) return chairCard(state);
+    return null;
+  }
+
+  function chairCard(state) {
+    const list = state.teachers.filter((t) => t.rank === 2);
+    if (!list.length) return null;
+    const held = list.filter((t) => t.leverage);
+    const teacher = (held.length ? held : list).slice().sort((a, b) => b.talent - a.talent)[0];
+    const meta = deptName(teacher.dept);
+    const bite = teacher.leverage
+      ? "他手里有把柄。人上去，把柄留在这个位置上。"
+      : "他没有把柄。系会稳一截。";
+    return scene(meta + "缺学科带头人", meta + teacher.name + "是副教授。" + bite, [
+      { id: "chair:yes:" + teacher.id, label: "让他来坐", detail: teacher.leverage ? "系稳一截，把柄留在带头人身上" : "这个系稳一截" },
+      { id: "chair:no:" + teacher.id, label: "先空着", detail: "这个系薄一截" }
+    ], { kind: "event" });
+  }
+
+  function congressCard(state) {
+    const topics = [
+      { key: "canteen", name: "食堂", hit: "风纪" },
+      { key: "dorm", name: "宿舍", hit: "风纪" },
+      { key: "status", name: "学籍", hit: "报考" }
+    ];
+    const topic = topics[rand(topics.length)];
+    return scene("教代会的提案", "提案写的是" + topic.name + "。答应，要花钱，声誉能回来一点。压下去，" + topic.hit + "会掉。", [
+      { id: "congress:yes:" + topic.key, label: "答应", detail: "钱够就出，声誉回来一点" },
+      { id: "congress:no:" + topic.key, label: "压下去", detail: topic.hit + "往下" }
+    ], { kind: "event" });
+  }
+
+  function partyCard(state) {
+    return scene("党委要听汇报", "把柄和举报还在。这份汇报本身就是压力。说轻了，巡视组会来得更快。", [
+      { id: "party:plain", label: "如实说", detail: "风纪回来一点，风险仍要上去" },
+      { id: "party:soft", label: "说轻一点", detail: "风险抬得更高，风纪下去" }
+    ], { kind: "event" });
+  }
+
+  function resolveChair(state, how, teacherId) {
+    const teacher = teacherById(state, teacherId);
+    if (!teacher) return;
+    const meta = DEPTS.find((d) => d.id === teacher.dept);
+    if (how === "yes") {
+      if (!state.chairOf) state.chairOf = {};
+      state.chairOf[teacher.dept] = teacher.id;
+      bumpDept(state, teacher.dept, 4);
+      if (teacher.leverage) addStat(state, "heat", 4);
+      note(state, teacher.name + "坐上" + meta.name + "的学科带头人。" + (teacher.leverage ? "把柄还在。" : ""));
+      feedback(state, "位置有人了", meta.name + "稳了 4。" + (teacher.leverage ? "把柄在他手里。" : teacher.name + "现在是学科带头人。"));
+      return;
+    }
+    bumpDept(state, teacher.dept, -3);
+    note(state, meta.name + "的学科带头人先空着。");
+    feedback(state, "位置还空着", meta.name + "薄了 3。");
+  }
+
+  function resolveCongress(state, how, key) {
+    const name = key === "dorm" ? "宿舍" : key === "status" ? "学籍" : "食堂";
+    if (how === "yes") {
+      if (state.funds >= 6) state.funds -= 6;
+      else addStat(state, "reputation", -2);
+      addStat(state, "reputation", 3);
+      note(state, "教代会的" + name + "提案答应了。");
+      feedback(state, "提案答应了", "声誉回来一点。账上够，钱才出得去。");
+      return;
+    }
+    if (key === "status") {
+      addStat(state, "enrollment", -4);
+      note(state, "学籍提案被压下。报考掉了一截。");
+      feedback(state, "提案压下了", "学籍没动。报考热度掉了一截。");
+      return;
+    }
+    addStat(state, "compliance", -4);
+    note(state, name + "提案被压下。风纪掉了一截。");
+    feedback(state, "提案压下了", name + "还是老样子。风纪掉了一截。");
+  }
+
+  function resolveParty(state, how) {
+    if (how === "plain") {
+      addStat(state, "compliance", 4);
+      addStat(state, "heat", 3);
+      note(state, "汇报如实说了。风险仍在往上走。");
+      feedback(state, "汇报送上去了", "风纪回来一点。把柄还在，巡视组看的就是这些数。");
+      return;
+    }
+    addStat(state, "heat", 8);
+    addStat(state, "compliance", -3);
+    note(state, "汇报说轻了。风险抬得更高。");
+    feedback(state, "汇报说轻了", "会上把事情说轻了。风险抬上去，风纪下去，巡视组来得更快。");
+  }
 
   function rivalTitle(state) {
     if (state.tier >= 2) return "滨江大学";
@@ -858,21 +1240,28 @@ function yearEvents(state) {
     const dept = state.depts.slice().sort((a, b) => a.strength - b.strength)[0];
     state.story.incidentDept = dept.id;
     const meta = deptName(dept.id);
+    let absent = "";
+    if (!state.facedStudents) {
+      addStat(state, "heat", 4);
+      state.story.enrollMod -= 2;
+      note(state, "校长今年没在学生面前出现。舆论更重。");
+      absent = "校长今年没在学生面前说过话，这件事传得更远。";
+    }
     if (state.story.incidentKind === "post") {
-      return scene("一篇实名帖", "帖子点了" + meta + "的一门课，在校外传了一天。本地媒体问学校有没有回应。", [
+      return scene("一篇实名帖", "帖子点了" + meta + "的一门课，在校外传了一天。本地媒体问学校有没有回应。" + absent, [
         { id: "story:post-bury", label: "先把热度压下去", detail: "风险上升，报考会慢一截" },
         { id: "story:post-open", label: "公开查这门课", detail: "风纪上升，这个系要挨一下" },
         { id: "story:post-face", label: "让任课教师出面", detail: "看这个系的人怎么说话" }
       ], { kind: "event" });
     }
     if (state.story.incidentKind === "accident") {
-      return scene("校庆台阶塌了一角", meta + "楼前的临时台阶塌了。没有重伤。视频先于通报出去。", [
+      return scene("校庆台阶塌了一角", meta + "楼前的临时台阶塌了。没有重伤。视频先于通报出去。" + absent, [
         { id: "story:accident-cold", label: "冷处理", detail: "声誉和报考一起往下" },
         { id: "story:accident-pay", label: "赔偿并公开", detail: "花钱，声誉能回来" },
         { id: "story:accident-blame", label: "追到这个系", detail: "系会薄，风纪回升" }
       ], { kind: "event" });
     }
-    return scene(meta + "停了两周课", "学生把理由写在教学楼上：课表排得下，带教的人不够。最短的就是这个系。", [
+    return scene(meta + "停了两周课", "学生把理由写在教学楼上：课表排得下，带教的人不够。最短的就是这个系。" + absent, [
       { id: "story:strike-talk", label: "谈话后复课", detail: "声誉轻伤，报考会慢" },
       { id: "story:strike-punish", label: "处分组织的学生", detail: "风纪上升，舆论和报考更差" },
       { id: "story:strike-dept", label: "把问题记到这个系头上", detail: "系往下掉，风纪和声誉回一点" }
@@ -1096,7 +1485,6 @@ function yearEvents(state) {
   function scriptedBribe(state) {
     const teacher = deptTeachers(state, "eng").slice().sort((a, b) => a.rank - b.rank)[0] || state.teachers[0];
     teacher.greed = Math.max(teacher.greed, 75);
-    if (teacher.rank > 1) teacher.rank = 1;
     if (state.story) {
       state.story.profId = teacher.id;
       state.story.profName = teacher.name;
@@ -1115,15 +1503,28 @@ function yearEvents(state) {
   function leverageDemand(state, teacher) {
     const meta = DEPTS.find((d) => d.id === teacher.dept);
     const asks = [
-      "他要你在下一个名单里直接写他的名字。",
-      "他实验室的账对不上，要你让审计这学期别进这个系。",
-      "他要一个不受名额限制的留校名额，给自己的学生。"
+      {
+        id: "list",
+        line: "他要你在下一个名单里直接写他的名字。",
+        detail: "职级升一档，系变强，学术下降，风险上升"
+      },
+      {
+        id: "audit",
+        line: "他实验室的账对不上，要你让审计这学期别进这个系。",
+        detail: "审计不进这个系。风纪下降，把柄还在。他不升职"
+      },
+      {
+        id: "quota",
+        line: "他要一个不受名额限制的留校名额，给自己的学生。",
+        detail: "学生留下，这个系稳一点。经费下去，他不升职"
+      }
     ];
+    const ask = pick(asks);
     return scene(
       teacher.name + "来兑现",
-      meta.name + "的" + teacher.name + "握着你收钱的那件事。" + pick(asks),
+      meta.name + "的" + teacher.name + "握着你收钱的那件事。" + ask.line,
       [
-        { id: "help:" + teacher.id, label: "帮", detail: "人留下，系变强，风险和学术水分上升" },
+        { id: "help:" + teacher.id + ":" + ask.id, label: "帮", detail: ask.detail },
         { id: "refuse:" + teacher.id, label: "不帮", detail: "可能离职，也可能举报。举报伤综合评分" }
       ],
       { kind: "event" }
@@ -1151,14 +1552,19 @@ function ambientEvents() {
 
 function mediaEvent(state) {
   const band = worldBand(rankScore(state));
-  return scene("今年的榜", "寰球榜把学校放在「" + band.label + "」。区域榜是「" + regionBand(rankScore(state)) + "」。没有申述，就按这个数字过年。", cont("收下这个名次"), { kind: "event" });
+  return scene("今年的榜", "寰球榜把学校放在「" + band.label + "」。区域榜是「" + regionBand(rankScore(state)) + "」。按这个名次对外，或者花钱改口径。", [
+    { id: "rank-take", label: "按这个名次对外", detail: "风纪稳住，报考热度掉一截" },
+    { id: "rank-spin", label: "改对外口径", detail: "花钱，声誉回来一点，风纪往下" }
+  ], { kind: "event" });
 }
 
-function giftEvent() {
-  return scene("一笔不带名字的省里拨款", "文件写的是学科建设。没有人要求你回报。", [
-    { id: "grant-sci", label: "投给理学", detail: "学术和升格都会松一点" },
-    { id: "grant-med", label: "补医学", detail: "把最短的社会服务补一截" },
-    { id: "grant-fund", label: "先存进经费", detail: "账上会多一截" }
+function giftEvent(state) {
+  const weak = state.depts.slice().sort((a, b) => a.strength - b.strength)[0];
+  const meta = DEPTS.find((d) => d.id === weak.id);
+  return scene("一笔不带名字的省里拨款", "文件写的是学科建设。钱落到哪一栏，另一栏就要让。", [
+    { id: "grant-sci", label: "投给理学", detail: "理学和学术上去，医学薄一截" },
+    { id: "grant-weak:" + weak.id, label: "补给" + meta.name, detail: "最短的系上去，经费扣一截" },
+    { id: "grant-fund", label: "先存进经费", detail: "账上变多，声誉往下" }
   ], { kind: "event" });
 }
 
@@ -1174,9 +1580,9 @@ function poachEvent(state) {
 }
 
 function contestEvent() {
-  return scene("学生把奖杯带回来了", "一次干净的胜仗。可以写进明年的升格附件。", [
-    { id: "contest-rep", label: "拿去抬声誉", detail: "社会评价更好看" },
-    { id: "contest-acad", label: "拿去抬学术", detail: "对理学、工学这条线更有用" }
+  return scene("学生把奖杯带回来了", "一次干净的胜仗。写进附件时，要决定记在哪一栏。", [
+    { id: "contest-rep", label: "拿去抬声誉", detail: "声誉上去，学术让一截" },
+    { id: "contest-depts", label: "记到理学和工学", detail: "这两个系上去，教学让一截" }
   ], { kind: "event" });
 }
 
@@ -1196,6 +1602,32 @@ function contestEvent() {
       afterBulletin(state);
       return;
     }
+    if (choiceId === "office:tilt") {
+      state.scene = officePick(state);
+      return;
+    }
+    if (choiceId === "office:back") {
+      state.scene = null;
+      state.queue = [];
+      openOffice(state);
+      return;
+    }
+    if (choiceId === "office:punish") return doOfficePunish(state);
+    if (choiceId === "office:file") return doOfficeFile(state);
+    if (choiceId.indexOf("office-dept:") === 0) return doOfficeTilt(state, choiceId.slice("office-dept:".length));
+    if (choiceId === "gov:build") {
+      state.scene = govPick(state);
+      return;
+    }
+    if (choiceId === "gov:back") {
+      state.scene = null;
+      state.queue = [];
+      openGov(state);
+      return;
+    }
+    if (choiceId === "gov:money") return doGovMoney(state);
+    if (choiceId.indexOf("gov-dept:") === 0) return doGovBuild(state, choiceId.slice("gov-dept:".length));
+    if (choiceId.indexOf("stu:") === 0) return doStudents(state, choiceId.slice(4));
     if (choiceId.indexOf("pick:") === 0) {
       const parts = choiceId.split(":");
       const action = parts[1];
@@ -1212,7 +1644,10 @@ function contestEvent() {
       nextScene(state);
       return;
     }
-    const [kind, id] = choiceId.split(":");
+    const parts = choiceId.split(":");
+    const kind = parts[0];
+    const id = parts[1];
+    const extra = parts[2];
     const teacher = id ? teacherById(state, id) : null;
     if (kind === "meet" && teacher) state.queue.unshift(reviewCard(teacher));
     else if (kind === "clean" && teacher) resolveClean(state, teacher);
@@ -1220,7 +1655,7 @@ function contestEvent() {
     else if (kind === "skip" && teacher) {
       teacher.loyalty = clamp(teacher.loyalty - 12, 0, 100);
       note(state, teacher.name + "今年没有进入名单。");
-    } else if (kind === "help" && teacher) resolveHelp(state, teacher);
+    } else if (kind === "help" && teacher) resolveHelp(state, teacher, extra);
     else if (kind === "refuse" && teacher) resolveRefuse(state, teacher);
     else if (kind === "audit" && teacher) {
       addStat(state, "compliance", 10);
@@ -1247,19 +1682,44 @@ function contestEvent() {
       removeTeacher(state, teacher, -9);
       note(state, teacher.name + "去了别的学校。");
     } else if (kind === "grant-sci") {
-      bumpDept(state, "sci", 7);
-      addStat(state, "academic", 3);
-      note(state, "省里的钱进了理学。");
-    } else if (kind === "grant-med") {
-      bumpDept(state, "med", 8);
-      addStat(state, "reputation", 3);
-      note(state, "省里的钱用来补医学。");
+      bumpDept(state, "sci", 6);
+      addStat(state, "academic", 2);
+      bumpDept(state, "med", -3);
+      note(state, "省里的钱进了理学。医学薄了一截。");
+    } else if (kind === "grant-weak" && id) {
+      const meta = DEPTS.find((d) => d.id === id);
+      bumpDept(state, id, 6);
+      if (state.funds >= 6) state.funds -= 6;
+      else addStat(state, "reputation", -3);
+      note(state, "拨款补给了最短的" + (meta ? meta.name : "系") + "。经费让出一截。");
     } else if (kind === "grant-fund") {
       state.funds = clamp(state.funds + 14, 0, 220);
-      note(state, "拨款先存进了经费。");
-    }     else if (kind === "contest-rep") addStat(state, "reputation", 5);
-    else if (kind === "contest-acad") addStat(state, "academic", 4);
+      addStat(state, "reputation", -3);
+      note(state, "拨款先存进了经费。声誉掉了一截。");
+    } else if (kind === "contest-rep") {
+      addStat(state, "reputation", 5);
+      addStat(state, "academic", -2);
+      note(state, "奖杯记在声誉上。学术让了一截。");
+    } else if (kind === "contest-depts") {
+      bumpDept(state, "sci", 3);
+      bumpDept(state, "eng", 3);
+      addStat(state, "teaching", -2);
+      note(state, "奖杯记到理学和工学。教学让了一截。");
+    } else if (kind === "rank-take") {
+      addStat(state, "compliance", 3);
+      addStat(state, "enrollment", -4);
+      note(state, "对外按榜上的名次说。报考热度掉了一截。");
+    } else if (kind === "rank-spin") {
+      if (state.funds >= 6) state.funds -= 6;
+      else addStat(state, "enrollment", -2);
+      addStat(state, "reputation", 4);
+      addStat(state, "compliance", -3);
+      note(state, "口径改过了。声誉回来一点，风纪往下。");
+    }
     else if (kind === "story") resolveStory(state, id);
+    else if (kind === "chair") resolveChair(state, id, extra);
+    else if (kind === "congress") resolveCongress(state, id, extra);
+    else if (kind === "party") resolveParty(state, id);
     else if (kind === "crisis-coop") return resolveCrisis(state, "coop");
     else if (kind === "crisis-blame") return resolveCrisis(state, "blame");
     else if (kind === "crisis-refuse") return resolveCrisis(state, "refuse");
@@ -1306,7 +1766,28 @@ function resolveTake(state, teacher) {
   feedback(state, "钱进了学校，把柄进了别人手里", teacher.name + "升为" + RANKS[teacher.rank] + "。之后他再来找你，不帮，就可能离职或者举报。举报会直接伤综合评分。");
 }
 
-function resolveHelp(state, teacher) {
+function resolveHelp(state, teacher, ask) {
+  const meta = DEPTS.find((d) => d.id === teacher.dept);
+  if (ask === "audit") {
+    addStat(state, "compliance", -8);
+    addStat(state, "heat", 6);
+    teacher.loyalty = clamp(teacher.loyalty + 8, 0, 100);
+    rememberProf(state, teacher, "helped");
+    note(state, "审计今年没进" + meta.name + "。" + teacher.name + "没有升职，把柄还在。");
+    feedback(state, "审计绕开了", "行程上划掉了" + meta.name + "。账还是那个洞。他没有升职，风纪下去，把柄还在。");
+    return;
+  }
+  if (ask === "quota") {
+    bumpDept(state, teacher.dept, 3);
+    if (state.funds >= 8) state.funds -= 8;
+    else addStat(state, "reputation", -3);
+    addStat(state, "heat", 4);
+    teacher.loyalty = clamp(teacher.loyalty + 8, 0, 100);
+    rememberProf(state, teacher, "helped");
+    note(state, teacher.name + "的学生留了下来。经费让出一截，他本人没有升职。");
+    feedback(state, "名额给了学生", meta.name + "稳了一点。钱从学校账上走。他本人没有升职，把柄还在。");
+    return;
+  }
   teacher.rank = Math.min(3, teacher.rank + 1);
   bumpDept(state, teacher.dept, 5);
   addStat(state, "academic", -3);
@@ -1314,8 +1795,8 @@ function resolveHelp(state, teacher) {
   addStat(state, "compliance", -6);
   teacher.loyalty = clamp(teacher.loyalty + 10, 0, 100);
   rememberProf(state, teacher, "helped");
-  note(state, "你帮了" + teacher.name + "。系更强，把柄还在。");
-  feedback(state, "你帮了", DEPTS.find((d) => d.id === teacher.dept).name + "更强了一截。学术水分和把柄风险也记上一笔。他手里的东西还在。");
+  note(state, "你把" + teacher.name + "写进了名单。系更强，学术下降，把柄还在。");
+  feedback(state, "名字进了名单", meta.name + teacher.name + "升为" + RANKS[teacher.rank] + "。学术水分和把柄风险也记上一笔。他手里的东西还在。");
 }
 
   function resolveRefuse(state, teacher) {
@@ -1488,6 +1969,7 @@ function resolveHelp(state, teacher) {
     state.year += 1;
     state.actionsLeft = 2;
     state.used = {};
+    state.facedStudents = false;
     state.phase = "play";
     state.scene = null;
     markOpening(state);
@@ -1539,6 +2021,7 @@ function resolveHelp(state, teacher) {
     state.year += 1;
     state.actionsLeft = 2;
     state.used = {};
+    state.facedStudents = false;
     state.phase = "play";
     state.scene = null;
     markOpening(state);
@@ -1548,17 +2031,17 @@ function resolveHelp(state, teacher) {
   function endingCatalog() {
     return {
       world: end("世界一流", "建成", "十四年后，学校站在 985 这一档，寰球榜也进了前 200。把柄没有在揭牌那天炸开。"),
-      top: end("顶尖学府", "985", "牌子已经是顶尖学府。榜单或者风纪还差一口气，但大专这两个字彻底留在旧文件里了。"),
-      key: end("国家重点", "211", "学校停在 211 这一档。不是传说里的顶尖，但已经不是当初那所职业技术学院。"),
+      top: end("顶尖学府", "985", "牌子已经是 985。榜单、把柄或评分还没到世界一流那一档。大专留在旧文件里。"),
+      key: end("国家重点", "211", "学校停在 211 这一档。大专已经过去了。"),
       college: end("升本止步", "本科", "本科牌子拿到了。再往上的学术、理学和排名，这一届没有凑齐。"),
-      vocational: end("大专收场", "未升", "十四年用完，学校还是大专。有的系变强了，整所学校没有跨过那道门。"),
+      vocational: end("大专收场", "未升", "十四年用完，学校还是大专。有的系变强了，学校没有升上去。"),
       ruined: end("评分崩盘", "重估", "举报和创伤把综合评分打穿。上面不再讨论排名，只讨论这所学校还要不要保留建制。"),
       downfall: end("校长离任", "离任", "巡视没有给你把任期做完的机会。学校的档次停在你离开的那一天。"),
-      scandal: end("排名作废", "除名", "你曾经把学校送进榜单。信被公开之后，这一档排名被撤下，揭牌词不再使用。"),
-      clean: end("清誉调任", "调任", "你几乎没让把柄留下。上面调你去管另一所学校。江湾升得有限，你的名字却是干净的。"),
+      scandal: end("排名作废", "除名", "你曾经把学校送进榜单。信被公开之后，这一档排名被撤下。"),
+      clean: end("清誉调任", "调任", ""),
       warlord: end("学阀架空", "架空", "最强的那个系握着你的把柄，最弱的系已经没人管。校长室还在，议程不是你在定。"),
-      hollow: end("人才走空", "空校", "带头人走得太多，六个系托不住一个校名。评估组来的时候，实验室是锁着的。"),
-      specialty: end("一科成名", "单科", "学校没有挤进 211，但有一个系强到业内会单独提起。这是一所特种学校，不是综合大学。")
+      hollow: end("人才走空", "空校", "评估组来的时候，实验室是锁着的。"),
+      specialty: end("一科成名", "单科", "学校没有挤进 211。有一个系强到业内会单独提起。")
     };
   }
 
@@ -1578,13 +2061,17 @@ function resolveHelp(state, teacher) {
     if (state.tier >= 1 && state.bestRank >= 5 && state.wound >= 12 && state.reports >= 1) return book.scandal;
     if (state.crisisDone && state.heat >= 92) return book.downfall;
 
+    if (!finalYear && state.year < YEARS) return null;
     const elite = state.tier >= 3 && band.index >= 6 && state.heat <= 30 && state.wound <= 8 && state.score >= 74;
     if (elite) return book.world;
-    if (!finalYear && state.year < YEARS) return null;
     if (maxDept.strength >= 84 && minStrength <= 28 && maxLead && maxLead.leverage) return book.warlord;
     if (state.tier >= 3) return book.top;
     if (state.tier >= 2) return book.key;
-    if (state.bribes === 0 && state.compliance >= 78 && state.reports === 0) return book.clean;
+    if (state.bribes === 0 && state.compliance >= 78 && state.reports === 0) {
+      const stem = state.baseName || "这所学校";
+      book.clean.text = "你几乎没让把柄留下。上面调你去管另一所学校。" + stem + "升得有限。";
+      return book.clean;
+    }
     if (maxDept.strength >= 80) return book.specialty;
     if (state.tier >= 1) return book.college;
     return book.vocational;
@@ -1600,47 +2087,200 @@ function resolveHelp(state, teacher) {
     return renderGame(state);
   }
 
-  function renderIntro(state) {
-    const saved = loadRaw();
-    return '<div class="intro"><div class="intro-card">' +
-      '<p class="eyebrow">FICTIONAL TERM · 14 YEARS</p>' +
-      '<h1>校长模拟器</h1>' +
-      '<p class="lede">把一所大专送到本科、211、985，再送到国际榜上。教师会贪污，也会贿赂你。收下，把柄就在别人手里。</p>' +
-      '<ul class="rules">' +
-      '<li><strong>升档</strong>看综合评分、理学、各系短板、风纪和国际影响。每年只能重点建设一个系，理工上去时，文法和医学会往下掉。</li>' +
-      '<li><strong>评审</strong>逢双年必开。同一个系里看成果、看谁夹着信封、看谁握有把柄，名额只有一个。</li>' +
-      '<li><strong>把柄</strong>来自你收过的钱。之后他来找你：帮，系会变强，风险也在；不帮，他可能离职，也可能举报。</li>' +
-      '<li><strong>举报</strong>直接伤学校综合评分。文法越强，这件事越压不住。</li>' +
-      '<li><strong>报考</strong>经管和医学抬热度，短板和举报往下压。热度不够，升本和 211 的材料递不出去。年终有公报。有的人、隔壁学校、一次公开事件，会在后面几年接着写。</li>' +
-      '</ul>' +
-      '<label for="school">学校的名字</label>' +
-      '<input id="school" type="text" maxlength="12" value="江湾" />' +
-      '<div class="intro-actions">' +
-      '<button class="primary" data-act="start">开始任期</button>' +
-      (saved ? '<button data-act="continue">继续上一届</button>' : '') +
-      '</div></div></div>';
+  function icon(name) {
+    const paths = {
+      home: '<path d="M4 11 12 4l8 7"/><path d="M6 10.5V20h12V10.5"/>',
+      back: '<path d="M15 5 8 12l7 7"/>',
+      go: '<path d="M9 5l7 7-7 7"/>',
+      build: '<path d="M4 20h16"/><path d="M6 20V9l6-5 6 5v11"/><path d="M10 20v-5h4v5"/>',
+      recruit: '<circle cx="9" cy="8" r="2.6"/><path d="M4 19a5 5 0 0 1 10 0"/><circle cx="17" cy="9" r="2"/><path d="M16 19a4 4 0 0 1 3.5-3.9"/>',
+      world: '<circle cx="12" cy="12" r="8"/><path d="M4 12h16"/><path d="M12 4c2.4 2.6 2.4 13.4 0 16-2.4-2.6-2.4-13.4 0-16z"/>',
+      donate: '<path d="M12 20s-7-4.4-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.6-7 9-7 9z"/>',
+      office: '<rect x="4" y="7" width="16" height="12" rx="2"/><path d="M8 7V5h8v2"/><path d="M4 12h16"/>',
+      gov: '<path d="M4 10h16"/><path d="M6 10v8M10 10v8M14 10v8M18 10v8"/><path d="M3 18h18"/><path d="M12 3 3 10h18z"/>',
+      students: '<path d="M3 9 12 5l9 4-9 4-9-4z"/><path d="M7 11.5V16c2 1.4 8 1.4 10 0v-4.5"/>',
+      inspect: '<circle cx="11" cy="11" r="6"/><path d="m20 20-3.5-3.5"/>',
+      teach: '<path d="M6 4h9l3 3v13H6z"/><path d="M15 4v3h3M8 12h8M8 16h5"/>',
+      apply: '<path d="M3 10 12 6l9 4-9 4-9-4z"/><path d="M7 12v4c2 1.4 8 1.4 10 0v-4"/>',
+      score: '<path d="M4 19V9M4 19h16M8 19v-5M12 19V6M16 19v-8"/>',
+      coin: '<circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.2 10.2h5.6M9.2 13.8h5.6"/>',
+      shield: '<path d="M12 3 5 6v6c0 4 3 6.6 7 8 4-1.4 7-4 7-8V6z"/>',
+      book: '<path d="M5 5h6a3 3 0 0 1 3 3v11a3 3 0 0 0-3-3H5z"/><path d="M19 5h-6a3 3 0 0 0-3 3v11a3 3 0 0 1 3-3h6z"/>',
+      voice: '<path d="M4 10v4l9 4V6z"/><path d="M16 9.5a4 4 0 0 1 0 5"/>',
+      cap: '<path d="M3 10 12 6l9 4-9 4-9-4z"/><path d="M7 12v4c2 1.4 8 1.4 10 0v-4"/>'
+    };
+    return '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + (paths[name] || paths.home) + '</svg>';
   }
 
+  function campusArt(bare) {
+    const sky = bare ? "" : '<rect width="200" height="88" fill="#d9e7f6"/>';
+    const wall = bare ? "#f4f7fb" : "#fbf9f7";
+    const glass = bare ? "#9ebfe0" : "#8eb0d4";
+    const roof = bare ? "#ffffff" : "#5b8ac7";
+    return '<svg class="skyline" viewBox="0 0 200 88" aria-hidden="true">' + sky +
+      '<rect y="64" width="200" height="24" fill="' + (bare ? "rgba(255,255,255,.16)" : "#e5f0e2") + '"/>' +
+      '<rect x="18" y="36" width="26" height="32" rx="2" fill="' + wall + '"/>' +
+      '<rect x="23" y="42" width="5" height="5" fill="' + glass + '"/><rect x="32" y="42" width="5" height="5" fill="' + glass + '"/>' +
+      '<rect x="23" y="51" width="5" height="5" fill="' + glass + '"/><rect x="32" y="51" width="5" height="5" fill="' + glass + '"/>' +
+      '<rect x="52" y="24" width="42" height="44" rx="2" fill="' + wall + '"/>' +
+      '<polygon points="52,24 73,10 94,24" fill="' + roof + '"/>' +
+      '<rect x="68" y="42" width="10" height="26" fill="' + roof + '"/>' +
+      '<rect x="104" y="32" width="36" height="36" rx="2" fill="' + wall + '"/>' +
+      '<rect x="110" y="38" width="7" height="6" fill="' + glass + '"/><rect x="122" y="38" width="7" height="6" fill="' + glass + '"/>' +
+      '<rect x="110" y="48" width="7" height="6" fill="' + glass + '"/><rect x="122" y="48" width="7" height="6" fill="' + glass + '"/>' +
+      '<rect x="148" y="42" width="24" height="26" rx="2" fill="' + wall + '"/>' +
+      '<circle cx="176" cy="30" r="6" fill="#f3e2b8"/>' +
+      '</svg>';
+  }
+
+  function appBar(sub) {
+    return '<header class="top"><span class="home">' + icon("cap") + '</span>' +
+      '<div class="brand"><b>校长模拟器</b><small>' + sub + '</small></div></header>';
+  }
+
+  function tile(label, value) {
+    const text = String(value);
+    return '<div class="tile"><span>' + label + '</span><b' + (text.length > 6 ? ' class="long"' : '') + '>' + esc(text) + '</b></div>';
+  }
+
+  function renderIntro(state) {
+    const saved = loadRaw();
+    return '<div class="shell intro">' + appBar("一届任期 · 十四年") +
+      '<section class="hello">' +
+      '<div class="hello-top"><div><h1>从一所大专开始</h1>' +
+      '<p class="lede">学校还是大专。先本科，再 211，再 985，然后是国际榜。教师会贪污，也会贿赂你。收下，把柄就在别人手里。</p></div>' +
+      campusArt(false) + '</div></section>' +
+      '<section class="card"><h2>这一局怎么走</h2><ul class="rules">' +
+      '<li><strong>升档</strong>看综合评分、理学、各系短板、风纪和国际影响。每年只能重点建设一个系，理工上去时，文法和医学会往下掉。</li>' +
+      '<li><strong>评审</strong>逢双年必开。同一个系里看成果、看谁夹着信封、看谁握有把柄，名额只有一个。</li>' +
+      '<li><strong>把柄</strong>来自你收过的钱。帮，系会变强，风险也在；不帮，他可能离职，也可能举报。</li>' +
+      '<li><strong>报考</strong>经管和医学抬热度，短板和举报往下压。热度不够，升本和 211 的材料递不出去。</li>' +
+      '</ul></section>' +
+      '<label for="school">学校的名字</label>' +
+      '<input id="school" type="text" maxlength="12" value="江湾" />' +
+      '<div class="choices">' +
+      '<button class="primary" data-act="start">开始任期</button>' +
+      (saved ? '<button data-act="continue">继续上一届</button>' : '') +
+      '</div></div>';
+  }
+
+  let screen = "do";
+
+  const NAV = [["do", "办事", "home"], ["school", "学校", "build"], ["people", "教师", "recruit"], ["apply", "申报", "apply"]];
+
   function renderGame(state) {
-    const band = worldBand(rankScore(state));
-    const g = gates(state);
-    return '<div class="shell">' +
-      '<header class="top"><div><h1 class="school-name">' + esc(state.schoolName) + '</h1>' +
-      '<p class="year-label">第 ' + state.year + ' 年 / ' + YEARS + ' · 本年还能做 ' + state.actionsLeft + ' 件事' +
-      (state.year % 2 === 0 ? ' · 年终开职称评审' : '') + '</p></div>' +
-      '<div class="score-block"><span>综合评分</span><div class="score-num">' + state.score + '</div></div></header>' +
-      ladderHtml(state) +
-      '<div class="ranks"><div>寰球榜 <b>' + band.label + '</b></div><div>东亚区域榜 <b>' + regionBand(rankScore(state)) + '</b></div></div>' +
-      '<div class="layout">' +
-      '<aside class="panel"><h2>六个系</h2>' + state.depts.map((d) => deptHtml(state, d)).join("") +
-      (g ? '<h2 style="margin-top:16px">申报' + g.title + '</h2><ul class="gates">' + g.items.map(gateHtml).join("") + '</ul>' : '<p class="note">已经站在 985 这一档。剩下的是榜单和有没有炸。</p>') +
-      '</aside>' +
-      '<section class="panel stage">' + mainHtml(state) + '</section>' +
-      '<aside class="panel"><h2>学校</h2>' + statsHtml(state) +
-      '<div class="log"><h2 style="margin-top:14px">本年备忘</h2><ul>' + state.log.map((l) => '<li>' + esc(l) + '</li>').join("") + '</ul></div></aside>' +
-      '</div>' +
-      '<div class="faculty">' + facultyHtml(state) + '</div>' +
+    return '<div class="shell play">' + sideNav() +
+      '<div class="main">' + topBar(state) + '<div class="sheet">' + sheetHtml(state) + '</div></div>' +
+      tabBar() + '</div>';
+  }
+
+  function sideNav() {
+    return '<aside class="side"><div class="sidetop">' + icon("cap") + '<b>校长模拟器</b></div><nav>' +
+      NAV.map(function (item) {
+        return '<button type="button" data-act="tab" data-arg="' + item[0] + '"' +
+          (screen === item[0] ? ' class="on"' : '') + '>' + icon(item[2]) + '<span>' + item[1] + '</span></button>';
+      }).join("") + '</nav>' + campusArt(true) + '</aside>';
+  }
+
+  function tabBar() {
+    return '<nav class="tabs">' + NAV.map(function (item) {
+      return '<button type="button" data-act="tab" data-arg="' + item[0] + '"' +
+        (screen === item[0] ? ' class="on"' : '') + '>' + item[1] + '</button>';
+    }).join("") + '</nav>';
+  }
+
+  function topBar(state) {
+    if (screen === "do" && state.scene) {
+      const title = state.scene.kind === "bulletin" ? "本年总结" : "要你拍板";
+      return '<header class="top"><b>' + title + '</b></header>';
+    }
+    if (screen === "do") {
+      return '<header class="top"><span class="home">' + icon("home") + '</span><b>' + esc(state.schoolName) + '</b></header>';
+    }
+    const titles = { school: "学校", people: "现在的人", apply: "申报" };
+    return '<header class="top"><button type="button" class="back" data-act="tab" data-arg="do" aria-label="返回">' + icon("back") + '</button><b>' + titles[screen] + '</b></header>';
+  }
+
+  function sheetHtml(state) {
+    if (screen === "school") return schoolSheet(state);
+    if (screen === "people") return peopleSheet(state);
+    if (screen === "apply") return applySheet(state);
+    return doSheet(state);
+  }
+
+  function pendingBanner(state) {
+    if (!state.scene || screen === "do") return "";
+    return '<button class="pending" data-act="tab" data-arg="do">有一件事等你拍板</button>';
+  }
+
+  function numberStrip(state) {
+    return '<div class="strip">' +
+      miniStat("score", "评分", state.score) +
+      miniStat("coin", "经费", state.funds) +
+      miniStat("students", "报考", state.enrollment || 0) +
+      miniStat("shield", "风纪", state.compliance) +
       '</div>';
+  }
+
+  function miniStat(iconName, label, value) {
+    return '<div><span class="pico">' + icon(iconName) + '</span><b>' + value + '</b><em>' + label + '</em></div>';
+  }
+
+  function glanceLine(state) {
+    const nums = "评分 " + state.score + " · 经费 " + state.funds + " · 报考 " + (state.enrollment || 0) + " · 风纪 " + state.compliance;
+    const depts = state.depts.map((d) => deptName(d.id) + " " + d.strength).join(" · ");
+    return '<p class="glance">' + nums + " · " + depts + "</p>";
+  }
+
+  function doSheet(state) {
+    if (state.scene && state.scene.kind === "bulletin") return bulletinSheet(state);
+    if (state.scene) return decisionHead(state) + glanceLine(state) + decisionButtons(state);
+    return '<section class="hello"><div class="hello-top"><div><h1>校长，您好！</h1>' +
+      '<p class="meta">今天是第 ' + state.year + ' 年 / ' + YEARS + '，还能做 ' + state.actionsLeft + ' 件事</p></div>' +
+      campusArt(false) + '</div>' + numberStrip(state) + '</section>' +
+      '<p class="deptline">' + state.depts.map((d) => deptName(d.id) + " " + d.strength).join(" · ") + '</p>' +
+      decisionButtons(state);
+  }
+
+  function schoolSheet(state) {
+    const band = worldBand(rankScore(state));
+    const review = state.year % 2 === 0 ? " · 年终评审" : "";
+    const notes = state.log.map((l) => '<li>' + esc(l) + '</li>').join("");
+    return pendingBanner(state) +
+      '<section class="card schoolhead"><span class="cap">' + icon("cap") + '</span><div><h2>' + esc(state.schoolName) + '</h2>' +
+      '<p class="meta">寰球榜 ' + band.label + ' · 东亚 ' + regionBand(rankScore(state)) + review + '</p></div></section>' +
+      ladderHtml(state) +
+      '<section class="card"><h2>六个系</h2>' + state.depts.map((d) => deptHtml(state, d)).join("") + '</section>' +
+      '<section class="card"><h2>数字</h2><div class="stats">' + statsHtml(state) + '</div></section>' +
+      (notes ? '<section class="card"><h2>本年备忘</h2><ul class="log">' + notes + '</ul></section>' : '');
+  }
+
+  function peopleSheet(state) {
+    return pendingBanner(state) +
+      '<section class="card people">' + facultyHtml(state) + '</section>';
+  }
+
+  function applySheet(state) {
+    const g = gates(state);
+    if (!g) {
+      return pendingBanner(state) +
+        '<section class="card schoolhead"><span class="cap">' + icon("cap") + '</span><div><h2>985</h2>' +
+        '<p class="meta">已经站在这一档。剩下的是榜单，还有把柄会不会炸。</p></div></section>';
+    }
+    const prize = tierPrize(state.tier + 1);
+    const ready = g.items.every(function (it) { return it.ok; });
+    const used = !!state.used.apply;
+    const short = state.funds < g.cost;
+    const disabled = used || short;
+    let hint = "过了：" + prize.lines.join("，") + "。把柄不动。";
+    if (!ready) hint = "还有条件没到。点下去会告诉你缺什么，这次不消耗行动。";
+    if (short) hint = "经费不够，现在递不出去。";
+    if (used) hint = "今年已经申报过了。";
+    return pendingBanner(state) +
+      '<section class="card schoolhead"><span class="cap">' + icon("cap") + '</span><div><h2>' + esc(g.title) + '</h2>' +
+      '<p class="meta">' + hint + '</p></div></section>' +
+      '<section class="card"><ul class="gates">' + g.items.map(gateHtml).join("") + '</ul></section>' +
+      '<button class="primary" data-act="action" data-arg="apply"' + (disabled ? " disabled" : "") + '>申请' + esc(g.title) + '<em>' + g.cost + '</em></button>';
   }
 
   function ladderHtml(state) {
@@ -1650,61 +2290,125 @@ function resolveHelp(state, teacher) {
     }).join("") + '</div>';
   }
 
+  function deptTone(n) {
+    if (n < 18) return "bad";
+    if (n < 32) return "near";
+    return "";
+  }
+
   function deptHtml(state, d) {
     const meta = DEPTS.find((x) => x.id === d.id);
-    const weak = d.strength < 24;
     return '<div class="dept"><div class="row"><b>' + meta.name + '</b><span>' + d.strength + '</span></div>' +
-      '<div class="bar ' + (weak ? "weak" : "") + '"><i style="width:' + d.strength + '%"></i></div>' +
+      '<div class="track"><i class="' + deptTone(d.strength) + '" style="width:' + d.strength + '%"></i></div>' +
       '<div class="hint">' + meta.role + '</div></div>';
   }
 
   function gateHtml(it) {
-    return '<li><span>' + it.label + '</span><span class="' + (it.ok ? "ok" : "no") + '">' + it.shown + '</span></li>';
+    const ratio = it.need ? it.value / it.need : 0;
+    let pct = Math.max(0, Math.min(100, ratio * 100));
+    let tone = "";
+    if (it.below) {
+      pct = it.ok ? Math.max(12, Math.min(100, (1 - ratio) * 100)) : 100;
+      tone = it.ok ? "ok" : "bad";
+    } else if (it.ok) tone = "ok";
+    else if (ratio >= 0.8) tone = "near";
+    else if (ratio < 0.45) tone = "bad";
+    return '<li class="req"><div class="row"><b>' + it.label + '</b><span class="' + (it.ok ? "ok" : "no") + '">' + it.shown + '</span>' +
+      (it.ok ? '<i class="tick">✓</i>' : '') + '</div>' +
+      '<div class="track"><i class="' + tone + '" style="width:' + pct.toFixed(1) + '%"></i></div></li>';
   }
 
   function statsHtml(state) {
-    const rows = [
-      ["学术", state.academic],
-      ["教学", state.teaching],
-      ["声誉", state.reputation],
-      ["报考热度", state.enrollment || 0],
-      ["经费", state.funds],
-      ["风纪", state.compliance],
-      ["把柄风险", state.heat],
-      ["举报创伤", state.wound]
+    const tiles = [
+      ["学术", state.academic, "book", ""],
+      ["国际影响", state.international, "world", ""],
+      ["教学", state.teaching, "teach", ""],
+      ["声誉", state.reputation, "voice", ""]
     ];
-    return rows.map((r) => '<div class="stat"><em>' + r[0] + '</em><b>' + r[1] + '</b></div>').join("");
+    const rows = [
+      ["报考热度", state.enrollment || 0, ""],
+      ["经费", state.funds, ""],
+      ["风纪", state.compliance, ""],
+      ["把柄风险", state.heat, state.heat >= 80 ? "bad" : state.heat >= 55 ? "near" : ""],
+      ["举报创伤", state.wound, state.wound >= 30 ? "bad" : state.wound >= 16 ? "near" : ""]
+    ];
+    return tiles.map((r) => '<div class="tile">' + icon(r[2]) + '<b>' + r[1] + '</b><em>' + r[0] + '</em></div>').join("") +
+      '<div class="rest">' + rows.map((r) => '<div class="stat ' + r[2] + '"><em>' + r[0] + '</em><b>' + r[1] + '</b></div>').join("") + '</div>';
+  }
+
+  function backgroundText(teacher) {
+    if (!teacher.school) {
+      teacher.pedigree = 0;
+      teacher.school = "本校";
+      teacher.degree = "本科";
+      teacher.skill = "research";
+    }
+    return teacher.school + " · " + teacher.degree + " · 擅长" + skillById(teacher.skill).name;
   }
 
   function facultyHtml(state) {
     const cards = DEPTS.map((meta) => {
       const people = deptTeachers(state, meta.id);
-      if (!people.length) return '<div class="person empty"><b>' + meta.name + '</b><div class="meta">没有带头人，年底这个系会往下掉。</div></div>';
-      return people.map((t) => '<div class="person"><div class="who"><b>' + esc(t.name) + '</b>' +
-        (t.leverage ? '<span class="tag">把柄</span>' : '') + '</div><div class="meta">' + meta.name + ' · ' + RANKS[t.rank] +
-        ' · 学术 ' + t.talent + (t.skimming ? ' · 账上有洞' : '') + '</div></div>').join("");
+      if (!people.length) return '<div class="person empty"><span class="avatar">' + icon("recruit") + '</span><div><b>' + meta.name + '</b><div class="meta">没有带头人，年底这个系会往下掉。</div></div></div>';
+      return people.map((t) => '<div class="person"><span class="avatar">' + esc(t.name.slice(0, 1)) + '</span><div class="who"><div class="nameline"><b>' + esc(t.name) + '</b>' +
+        (t.leverage ? '<span class="tag warn">把柄</span>' : '') +
+        (isChair(state, t) ? '<span class="tag">学科带头人</span>' : '') +
+        (t.skimming ? '<span class="tag warn">账上有洞</span>' : '') +
+        '</div><div class="meta">' + meta.name + ' · ' + RANKS[t.rank] +
+        ' · ' + esc(backgroundText(t)) +
+        ' · 才华 ' + t.talent + '</div></div></div>').join("");
     });
     return cards.join("");
   }
 
-  function mainHtml(state) {
+  function decisionHead(state) {
+    if (!state.scene) return "";
+    return '<h1>' + esc(state.scene.title) + '</h1>' +
+      '<p class="lede">' + esc(state.scene.body) + '</p>' +
+      (state.scene.lines ? '<div class="reason"><b>这一年动过的数</b><ul class="log">' + state.scene.lines.map((line) => '<li>' + esc(line) + '</li>').join("") + '</ul></div>' : '');
+  }
+
+  function bulletinSheet(state) {
+    const lines = state.scene.lines || [];
+    const changes = [];
+    const notes = [];
+    let noting = false;
+    lines.forEach(function (line) {
+      if (line === "原因") { noting = true; return; }
+      (noting ? notes : changes).push(line);
+    });
+    const pct = Math.max(0, Math.min(100, state.score));
+    return '<section class="card summary"><div class="sumtop"><div><h1>' + esc(state.scene.title) + '</h1>' +
+      '<p class="lede">' + esc(state.scene.body) + '</p></div>' +
+      '<div class="ring" style="--p:' + pct + '"><span><b>' + state.score + '</b><em>综合评分</em></span></div></div>' +
+      '<ul class="deltas">' + changes.map(deltaHtml).join("") + '</ul></section>' +
+      (notes.length ? '<section class="card"><h2>原因</h2><ul class="log">' + notes.map(function (line) { return '<li>' + esc(line) + '</li>'; }).join("") + '</ul></section>' : '') +
+      decisionButtons(state);
+  }
+
+  function deltaHtml(line) {
+    const up = /（\+/.test(line);
+    const down = /（-/.test(line);
+    const cls = up ? "up" : down ? "down" : "";
+    return '<li class="' + cls + '">' + esc(line) + '</li>';
+  }
+
+  function decisionButtons(state) {
     if (state.scene) {
-      return '<p class="eyebrow">MEMO</p><h2 class="memo">' + esc(state.scene.title) + '</h2>' +
-        '<p class="memo-body">' + esc(state.scene.body) + '</p>' +
-        (state.scene.lines ? '<ul class="bulletin">' + state.scene.lines.map((line) => '<li>' + esc(line) + '</li>').join("") + '</ul>' : '') +
-        '<div class="choices">' + state.scene.choices.map((c) =>
-          '<button data-act="choice" data-arg="' + esc(c.id) + '"><b>' + esc(c.label) + '</b>' +
-          (c.detail ? '<small>' + esc(c.detail) + '</small>' : '') + '</button>'
-        ).join("") + '</div>';
+      const only = state.scene.choices.length === 1;
+      return '<div class="choices">' + state.scene.choices.map((c) =>
+        '<button class="' + (only ? "primary" : "") + '" data-act="choice" data-arg="' + esc(c.id) + '"><b>' + esc(c.label) + '</b>' +
+        (c.detail ? '<small>' + esc(c.detail) + '</small>' : '') + '</button>'
+      ).join("") + '</div>';
     }
+    const icons = { build: "build", recruit: "recruit", world: "world", donate: "donate", office: "office", gov: "gov", students: "students", inspect: "inspect", teach: "teach", apply: "apply" };
     const list = actionsCatalog(state);
-    return '<p class="eyebrow">THIS YEAR</p><h2 class="memo">今年先办哪两件事</h2>' +
-      '<p class="note">学科建设一年一次。引进和国际合作可以再做。募捐、巡察、教学和申报一年一次。逢双年，两件事办完就开职称评审。</p>' +
-      '<div class="actions">' + list.map((a) => {
-        const disabled = a.disabled || (a.once && state.used[a.id]) || state.funds < a.cost;
-        return '<button data-act="action" data-arg="' + a.id + '"' + (disabled ? " disabled" : "") + '><b>' + a.name +
-          (a.cost ? ' · ' + a.cost : '') + '</b><span>' + a.desc + '</span></button>';
-      }).join("") + '</div>';
+    return '<div class="actions">' + list.map((a) => {
+      const disabled = a.disabled || (a.once && state.used[a.id]) || state.funds < a.cost;
+      const tail = a.cost ? '<em>' + a.cost + '</em>' : '<em class="go">' + icon("go") + '</em>';
+      return '<button data-act="action" data-arg="' + a.id + '"' + (disabled ? " disabled" : "") + '><span class="ico">' + icon(icons[a.id] || "build") + '</span><b>' + a.name +
+        '</b>' + tail + '</button>';
+    }).join("") + '</div>';
   }
 
   function renderEnding(state) {
@@ -1713,21 +2417,15 @@ function resolveHelp(state, teacher) {
     const ranked = state.depts.slice().sort((a, b) => b.strength - a.strength);
     const best = ranked[0];
     const worst = ranked[ranked.length - 1];
-    return '<div class="ending"><div class="ending-card"><div class="stamp">' + esc(e.stamp) + '</div>' +
-      '<p class="eyebrow">任期卡 · 第 ' + state.year + ' 年</p>' +
-      '<h1>' + esc(state.schoolName) + '</h1>' +
-      '<p class="tenure-title">' + esc(e.title) + '</p>' +
-      '<div class="end-grid">' +
-      statLine("档次", TIERS[state.tier].name) +
-      statLine("寰球榜", band.label) +
-      statLine("收过的好处", state.bribes + " 笔") +
-      statLine("被举报", state.reports + " 次") +
-      statLine("最强的系", deptName(best.id) + " " + best.strength) +
-      statLine("最短的系", deptName(worst.id) + " " + worst.strength) +
-      statLine("报考热度", state.enrollment == null ? "—" : state.enrollment) +
-      statLine("综合评分", state.score) +
-      '</div><p class="verdict">' + esc(e.text) + '</p>' +
-      '<button class="primary" data-act="restart">再当一届</button></div></div>';
+    return '<div class="shell intro">' + appBar("任期结算") +
+      '<section class="card summary"><div class="sumtop"><div><p class="eyebrow">本局已结束</p><h1>' + esc(e.title) + '</h1>' +
+      '<p class="lede">' + esc(e.text) + '</p></div>' +
+      '<div class="ring" style="--p:' + Math.max(0, Math.min(100, state.score)) + '"><span><b>' + state.score + '</b><em>综合评分</em></span></div></div></section>' +
+      '<p class="meta">' + esc(state.schoolName) + ' · ' + TIERS[state.tier].name + ' · 寰球榜 ' + band.label + ' · 报考 ' + (state.enrollment == null ? "—" : state.enrollment) + '</p>' +
+      '<div class="rowcard"><span>收过的好处 <b>' + state.bribes + '</b></span><span class="side">被举报 ' + state.reports + ' 次</span></div>' +
+      '<section class="card"><h2>停在这一档</h2><p class="lede">' + esc(e.stamp) + '。最强的是' + deptName(best.id) + ' ' + best.strength + '，最短的是' + deptName(worst.id) + ' ' + worst.strength + '。</p>' +
+      '<p class="fine">数字按离任那天固定。这一届不能再改。</p></section>' +
+      '<button class="primary" data-act="restart">再当一届</button></div>';
   }
 
   function statLine(k, v) { return '<div><span>' + k + '</span><b>' + v + '</b></div>'; }
@@ -1770,24 +2468,42 @@ function resolveHelp(state, teacher) {
         const name = (input && input.value.trim()) || "江湾";
         state = createState(name);
         state.mode = "play";
+        screen = "do";
         draw();
+        window.scrollTo(0, 0);
         return;
       }
       if (act === "continue") {
         const saved = loadRaw();
         if (saved && saved.depts) state = saved;
         draw();
+        window.scrollTo(0, 0);
         return;
       }
       if (act === "restart") {
         clearSave();
         state = { mode: "intro" };
+        screen = "do";
         draw();
+        window.scrollTo(0, 0);
         return;
       }
-      if (act === "action") perform(state, btn.dataset.arg);
-      if (act === "choice") choose(state, btn.dataset.arg);
+      if (act === "tab") {
+        screen = btn.dataset.arg || "do";
+        draw();
+        window.scrollTo(0, 0);
+        return;
+      }
+      if (act === "action") {
+        perform(state, btn.dataset.arg);
+        screen = "do";
+      }
+      if (act === "choice") {
+        choose(state, btn.dataset.arg);
+        screen = "do";
+      }
       draw();
+      window.scrollTo(0, 0);
     });
 
     draw();
