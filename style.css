@@ -241,12 +241,13 @@ h2, .card > b, .reason > b {
 .strip b, .stats .tile b, .ring b {
   display: block;
   margin-top: 1px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.03em;
   color: var(--title);
+  white-space: nowrap;
 }
 
 .strip em, .stats .tile em, .ring em {
@@ -265,8 +266,31 @@ h2, .card > b, .reason > b {
 
 .strip .near b { color: #c4843a; }
 .strip .bad b { color: var(--bad); }
-.yearcard .log { margin-top: 8px; }
-.yearcard .log li { padding: 6px 0; font-size: 13px; }
+.yearscroll {
+  max-height: 240px;
+  margin-top: 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.yearblock { padding: 8px 0 2px; border-top: 1px solid var(--line); }
+.yearblock:first-child { border-top: none; padding-top: 0; }
+.yearblock h3 {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 6px 8px;
+  background: var(--blue-soft);
+  border-radius: 8px;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 700;
+}
+.yearblock.now h3 { background: var(--blue); color: #fff; }
+.yearblock .meta { margin: 8px 8px 0; }
+.yearcard .log { margin: 4px 0 0; }
+.yearcard .log li { padding: 6px 8px; font-size: 13px; }
 
 .ladder {
   display: grid;
@@ -289,6 +313,7 @@ h2, .card > b, .reason > b {
 .rung.on { background: var(--blue); border-color: transparent; color: #fff; }
 .rung.on small, .rung.on b { color: #fff; }
 .rung.done small, .rung.done b { color: var(--good); }
+.rung.lock { opacity: 0.45; }
 
 .schoolhead { justify-content: flex-start; align-items: center; }
 .schoolhead .cap {
@@ -414,6 +439,12 @@ h2, .card > b, .reason > b {
 .actions .go svg { width: 16px; height: 16px; }
 
 .choices { display: grid; gap: 10px; margin: 14px 0; }
+.origins { display: grid; gap: 8px; margin-top: 8px; }
+.origins button { width: 100%; text-align: left; }
+.origins button b { display: block; font-size: 16px; font-weight: 650; }
+.origins button small { display: block; margin-top: 4px; color: var(--muted); font-size: 13px; line-height: 1.45; font-weight: 400; }
+.origins button.on { background: var(--blue); color: #fff; border-color: transparent; }
+.origins button.on small { color: rgba(255,255,255,.86); }
 .choices button { width: 100%; text-align: left; }
 .choices button b { display: block; font-size: 16px; font-weight: 650; color: var(--title); }
 .choices button small { display: block; margin-top: 4px; color: var(--muted); font-size: 13px; line-height: 1.5; font-weight: 400; }
@@ -492,6 +523,7 @@ h2, .card > b, .reason > b {
 .summary h1 { font-size: 24px; }
 
 .sect { margin: 18px 4px 0; font-size: 16px; color: var(--title); }
+.asknote { margin: 4px 4px 0; }
 
 .depts .dept:first-child { border-top: none; padding-top: 4px; }
 
