@@ -5,6 +5,7 @@
   if (typeof document !== "undefined") api.mount(document.getElementById("app"));
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   const YEARS = 14;
+  const SEASONS = ["春", "夏", "秋", "冬"];
   const SAVE_KEY = "president-sim-v3";
 
   const DEPTS = [
@@ -21,7 +22,8 @@
     { name: "大专", short: "高职" },
     { name: "本科", short: "本科" },
     { name: "211", short: "211" },
-    { name: "985", short: "985" }
+    { name: "985", short: "985" },
+    { name: "D9", short: "D9" }
   ];
 
   const SURNAMES = ["周", "林", "陈", "赵", "吴", "孙", "郑", "何", "高", "马", "罗", "梁", "宋", "唐", "韩", "冯", "邓", "曹", "彭", "蒋"];
@@ -78,7 +80,8 @@
     [50, 32, 14, 4, 0],
     [24, 34, 26, 12, 4],
     [8, 20, 32, 26, 14],
-    [2, 10, 24, 34, 30]
+    [2, 10, 24, 34, 30],
+    [0, 6, 16, 36, 42]
   ];
   const SKILLS = [
     { id: "research", name: "科研", stat: "academic", label: "学术" },
@@ -89,7 +92,7 @@
   ];
 
   function rollPedigree(tier) {
-    const weights = PEDIGREE_WEIGHTS[Math.max(0, Math.min(3, tier || 0))];
+    const weights = PEDIGREE_WEIGHTS[Math.max(0, Math.min(PEDIGREE_WEIGHTS.length - 1, tier || 0))];
     let roll = rand(weights.reduce(function (sum, n) { return sum + n; }, 0));
     for (let i = 0; i < weights.length; i++) {
       roll -= weights[i];
@@ -158,7 +161,8 @@
       depts,
       teachers: [],
       log: [],
-      actionsLeft: 2,
+      actionsLeft: 1,
+      season: 0,
       used: {},
       reviewCursor: 0,
       phase: "play",
@@ -222,9 +226,11 @@
       wound: state.wound,
       international: state.international,
       enrollment: state.enrollment || 0,
+      reports: state.reports || 0,
       depts: state.depts.map((d) => ({ id: d.id, strength: d.strength }))
     };
     state.yearNotes = [];
+    state.pushedJobs = false;
   }
 
   function deptName(id) {
@@ -384,6 +390,25 @@
         ]
       };
     }
+    if (state.tier === 3) {
+      const eliteDepts = state.depts.filter((d) => d.strength >= 66).length;
+      return {
+        title: "D9",
+        cost: 28,
+        items: [
+          item("综合评分", state.score, 78),
+          item("学术", state.academic, 74),
+          item("理学", g.sci, 72),
+          item("四个系达到 66", eliteDepts, 4),
+          item("国际影响", state.international, 56),
+          item("风纪", state.compliance, 70),
+          item("把柄风险", state.heat, 21, true),
+          item("举报创伤", state.wound, 7, true),
+          item("实名举报次数", state.reports, 1, true),
+          item("经费", state.funds, 28)
+        ]
+      };
+    }
     return null;
   }
 
@@ -456,7 +481,13 @@ function item(label, value, need, below) {
   function nextScene(state) {
     state.scene = state.queue.shift() || null;
     if (state.scene) {
-      state.phase = "scene";
+      state.phase = state.phase === "season" || state.phase === "year-events" ? state.phase : "scene";
+      return;
+    }
+    if (state.phase === "season") {
+      state.season = (state.season || 0) + 1;
+      state.actionsLeft = 1;
+      state.phase = "play";
       return;
     }
     if (state.phase === "year-events" || state.afterEvents) {
@@ -481,7 +512,7 @@ function item(label, value, need, below) {
       { id: "students", name: "学生事务", desc: "处分或就业。今年不在学生面前出现，舆论会更重。", cost: 0, once: true },
       { id: "inspect", name: "内部巡察", desc: "想把把柄切掉。对方也会察觉。", cost: 4, once: true },
       { id: "teach", name: "教学评估", desc: focus.id === "teaching" ? "补升本最看的教学。学术不动。" : "补" + focus.label + "。教学不动。", cost: 6, once: true },
-      { id: "apply", name: g ? "申报" + g.title : "已是 985", desc: g ? "过了：" + tierPrize(state.tier + 1).lines.join("，") + "。把柄不动。" : "这一档已经到顶。", cost: g ? g.cost : 0, once: true, disabled: !g }
+      { id: "apply", name: g ? "申报" + g.title : "已是 D9", desc: g ? "过了：" + tierPrize(state.tier + 1).lines.join("，") + "。把柄不动。" : "这一档已经到顶。", cost: g ? g.cost : 0, once: true, disabled: !g }
     ];
   }
 
@@ -519,23 +550,29 @@ function item(label, value, need, below) {
   }
 
   function finishAction(state, card) {
-    if (state.actionsLeft <= 0) {
-      state.afterEvents = true;
-      state.phase = "year-events";
-      const events = yearEvents(state);
-      state.queue = [card].concat(events).filter(Boolean);
-      state.scene = state.queue.shift() || null;
-      if (!state.scene) settleYear(state);
+    if (state.actionsLeft > 0) {
+      openQueue(state, [card]);
       return;
     }
-    openQueue(state, [card]);
+    if ((state.season || 0) < 3) {
+      openQueue(state, [card]);
+      state.phase = "season";
+      return;
+    }
+    state.afterEvents = true;
+    const events = yearEvents(state);
+    state.queue = [card].concat(events).filter(Boolean);
+    state.scene = state.queue.shift() || null;
+    state.phase = "year-events";
+    if (!state.scene) settleYear(state);
   }
 
   function recruitOddsLine(tier) {
     if (tier <= 0) return "现在是大专。人多半从本校或普通学院来，拉动小。";
     if (tier === 1) return "现在是本科。普通大学的博士会多起来，拉动比大专大。";
     if (tier === 2) return "现在是 211。985 和海外博士开始常见，拉动更大。";
-    return "现在是 985。海外和 985 的博士最常见，拉动最大。";
+    if (tier === 3) return "现在是 985。海外和 985 的博士最常见，拉动更大。";
+    return "现在是 D9。海外博士最常见，拉动最大。";
   }
 
   function deptPick(state, action) {
@@ -889,7 +926,7 @@ function doBuild(state, deptId) {
       "食堂和校报都看过了。处分和就业，今天得有一个说法。今年要是不在学生面前出现，后面的舆论会更重。",
       [
         { id: "stu:punish", label: "按规矩处分", detail: "风纪上升，报考下去" },
-        { id: "stu:jobs", label: "保就业", detail: "报考上升。钱够就出账，不够声誉掉一点" }
+        { id: "stu:jobs", label: "保就业", detail: "报考上升。钱够就出账，不够声誉掉一点。出了账，年底就业好一档" }
       ].concat([{ id: "cont", label: "返回" }])
     )]);
   }
@@ -905,12 +942,23 @@ function doBuild(state, deptId) {
       finishAction(state, scene("处分发出去了", "你在场。风纪抬了一截，报考热度下去。", cont()));
       return;
     }
-    if (state.funds >= 8) state.funds -= 8;
-    else addStat(state, "reputation", -3);
+    if (state.funds >= 8) {
+      state.funds -= 8;
+      state.pushedJobs = true;
+      note(state, "就业的钱拨出去了。报考热度回来一点。年底就业好一档。");
+    } else {
+      addStat(state, "reputation", -3);
+      note(state, "就业的场面摆了，钱没出去。声誉掉一点，年底不加档。");
+    }
     addStat(state, "enrollment", 5);
-    note(state, "就业的钱拨出去了。报考热度回来一点。");
     sync(state);
-    finishAction(state, scene("去保了就业", "你在招聘会上出现过。报考热度上来。钱够，账上少一笔；不够，声誉掉一点。", cont()));
+    finishAction(state, scene(
+      "去保了就业",
+      state.pushedJobs
+        ? "你在招聘会上出现过。报考热度上来，账上少一笔。年底的就业会好一档。"
+        : "你在招聘会上出现过。报考热度上来。账上不够，声誉掉一点，年底就业不加档。",
+      cont()
+    ));
   }
 
   function tierPrize(nextTier) {
@@ -935,13 +983,24 @@ function doBuild(state, deptId) {
         }
       };
     }
+    if (nextTier === 3) {
+      return {
+        grant: "抬头换成 985。",
+        lines: ["国际影响 +10", "学术 +6", "声誉 +6"],
+        apply: function (state) {
+          addStat(state, "international", 10);
+          addStat(state, "academic", 6);
+          addStat(state, "reputation", 6);
+        }
+      };
+    }
     return {
-      grant: "抬头换成 985。",
-      lines: ["国际影响 +10", "学术 +6", "声誉 +6"],
+      grant: "D9的名额落到国际榜和学术上。",
+      lines: ["国际影响 +8", "学术 +4", "声誉 +4"],
       apply: function (state) {
-        addStat(state, "international", 10);
-        addStat(state, "academic", 6);
-        addStat(state, "reputation", 6);
+        addStat(state, "international", 8);
+        addStat(state, "academic", 4);
+        addStat(state, "reputation", 4);
       }
     };
   }
@@ -960,7 +1019,7 @@ function doBuild(state, deptId) {
     prize.apply(state);
     note(state, "学校升到「" + TIERS[state.tier].name + "」。" + prize.lines.join("，") + "。");
     sync(state);
-    const title = state.tier === 1 ? "升本通过" : state.tier === 2 ? "进入 211 这一档" : "进入 985 这一档";
+    const title = state.tier === 1 ? "升本通过" : state.tier === 2 ? "进入 211 这一档" : state.tier === 3 ? "进入 985 这一档" : "进入 D9";
     finishAction(state, scene(title, prize.grant + prize.lines.join("，") + "。把柄没有洗掉。", cont()));
   }
 
@@ -1865,6 +1924,81 @@ function resolveHelp(state, teacher, ask) {
     note(state, "报考热度 " + (moved > 0 ? "+" : "") + moved + "。" + enrollmentReason(state, { biz, med, min, extra }));
   }
 
+  function jobsScore(state) {
+    const eng = deptById(state, "eng").strength;
+    const biz = deptById(state, "biz").strength;
+    const cs = deptById(state, "cs").strength;
+    const med = deptById(state, "med").strength;
+    const minDept = state.depts.slice().sort(function (a, b) { return a.strength - b.strength; })[0];
+    const reported = state.opening && state.opening.reports != null && state.reports > state.opening.reports;
+    let score = 0;
+    if (eng >= 32) score += 1;
+    if (eng >= 52) score += 1;
+    if (biz >= 32) score += 1;
+    if (biz >= 52) score += 1;
+    if (state.teaching >= 45) score += 1;
+    if (state.tier >= 1) score += 1;
+    if (state.pushedJobs) score += 1;
+    if (minDept.strength < 18) score -= 1;
+    if (state.wound >= 11 || reported) score -= 1;
+    const band = score <= 1 ? "hard" : score >= 4 ? "good" : "mid";
+    return { score: score, band: band, eng: eng, biz: biz, cs: cs, med: med, minDept: minDept, reported: reported };
+  }
+
+  function jobsEffect(tier, band) {
+    const high = tier >= 2;
+    if (band === "hard") {
+      if (high) return [{ key: "reputation", n: -3 }, { key: "compliance", n: -1 }];
+      if (tier === 1) return [{ key: "enrollment", n: -2 }, { key: "reputation", n: -2 }];
+      return [{ key: "enrollment", n: -3 }];
+    }
+    if (band === "mid") return high ? [{ key: "reputation", n: 1 }] : [];
+    if (high) return [{ key: "reputation", n: 3 }];
+    if (tier === 1) return [{ key: "enrollment", n: 2 }, { key: "reputation", n: 2 }];
+    return [{ key: "enrollment", n: 2 }, { key: "reputation", n: 1 }];
+  }
+
+  function jobsEffectText(effects) {
+    const names = { enrollment: "报考", reputation: "声誉", compliance: "风纪" };
+    if (!effects.length) return "";
+    return effects.map(function (e) { return names[e.key] + " " + (e.n > 0 ? "+" : "") + e.n; }).join("，") + "。";
+  }
+
+  function jobsPicture(state, info) {
+    if (info.band === "good") {
+      if (info.eng >= 52 && state.pushedJobs) return "你在招聘会上站过。市建工把名额从一个组加到了机电班整班。";
+      if (info.eng >= 52) return "机电班整班进了市建工。招聘会那天，安全帽比三方协议先到。";
+      if (info.cs >= 52 && state.tier >= 2) return "软件班有人进了合作校的项目组，更多人去了沪上的实验室。";
+      if (info.cs >= 52) return "软件班大多去了软件园的外包。合同能签，封面还写不上学校。";
+      if (info.biz >= 52) return "会计班一半进了江城银行的柜台，一半去了校友开的厂。";
+      if (info.med >= 45) return "临床班去了市医院和两家县医院。评估材料里，社会服务这一栏终于能写满。";
+      if (state.teaching >= 45) return "普通班也能签到本地的岗。单位要的是能上手的人，不是牌子。";
+      if (state.pushedJobs) return "你在招聘会上站过。市建工把名额从一个组加到了机电班整班。";
+      return "牌子比班里的成绩更好用。单位按学校的档来要人。";
+    }
+    if (info.band === "mid") {
+      if (state.pushedJobs && info.eng < 52 && info.biz < 52) return "招聘会把人从家里拉出来了。签的多是本地小厂和柜台，简章只能写「大部分有去处」。";
+      if (state.tier >= 1 && info.eng < 52 && info.biz < 52) return "牌子比去年好写。班里仍是有人去银行，有人回县城，拉不开差距。";
+      return "机电班签了一部分市建工，会计班还在等城商行的二面。没有整班落空，也没有整班被要走。";
+    }
+    if (info.reported || state.wound >= 11) return "原本说好的银行岗位撤了。举报信比成绩单先到人事那里。";
+    if (info.minDept.strength < 18) return "招工的人问到" + deptName(info.minDept.id) + "，桌子后面就没有下文了。别的班再好，简章上也得把这一笔写上。";
+    if (info.eng < 32) return "机电班的三方协议只收回来几份。厂里的人看过实训室，没留电话。";
+    if (info.biz < 32) return "会计班等城商行等到散会。校友那边说，今年没有坑。";
+    if (info.cs < 32) return "软件班投出去的简历停在软件园门口。外包公司要能干活的，不要再培训一届的。";
+    if (info.med < 24) return "临床班能去的只剩卫生院。市医院的名额给了别的学校。";
+    return "班里签出去的岗位零散。招聘会散了，三方协议还空着一大半。";
+  }
+
+  function applyJobs(state) {
+    const info = jobsScore(state);
+    const effects = jobsEffect(state.tier, info.band);
+    effects.forEach(function (e) { addStat(state, e.key, e.n); });
+    const bandName = info.band === "hard" ? "难找工作" : info.band === "good" ? "去处稳" : "去处平常";
+    state.lastJobs = bandName;
+    note(state, "就业：" + bandName + "。" + jobsEffectText(effects) + jobsPicture(state, info));
+  }
+
   function bulletinLines(state, before) {
     const names = {
       score: "综合评分",
@@ -1934,6 +2068,7 @@ function resolveHelp(state, teacher, ask) {
       }
     });
     applyEnrollment(state);
+    applyJobs(state);
     hit.lines.forEach((line) => note(state, line));
     sync(state);
     state.afterEvents = false;
@@ -1942,7 +2077,7 @@ function resolveHelp(state, teacher, ask) {
     state.scene = scene(
       "第 " + state.year + " 年公报",
       "这一年动过的数字，和原因。",
-      [{ id: "bulletin", label: "继续" }],
+      [{ id: "bulletin", label: "继续下一年" }],
       { lines: bulletinLines(state, before), kind: "bulletin" }
     );
   }
@@ -1967,7 +2102,8 @@ function resolveHelp(state, teacher, ask) {
       return;
     }
     state.year += 1;
-    state.actionsLeft = 2;
+    state.season = 0;
+    state.actionsLeft = 1;
     state.used = {};
     state.facedStudents = false;
     state.phase = "play";
@@ -2019,7 +2155,8 @@ function resolveHelp(state, teacher, ask) {
       return;
     }
     state.year += 1;
-    state.actionsLeft = 2;
+    state.season = 0;
+    state.actionsLeft = 1;
     state.used = {};
     state.facedStudents = false;
     state.phase = "play";
@@ -2030,8 +2167,9 @@ function resolveHelp(state, teacher, ask) {
 
   function endingCatalog() {
     return {
-      world: end("世界一流", "建成", "十四年后，学校站在 985 这一档，寰球榜也进了前 200。把柄没有在揭牌那天炸开。"),
-      top: end("顶尖学府", "985", "牌子已经是 985。榜单、把柄或评分还没到世界一流那一档。大专留在旧文件里。"),
+      world: end("世界一流", "建成", "十四年后，学校进了 D9，寰球榜也进了前 200。把柄没有在揭牌那天炸开。"),
+      d9: end("D9联盟", "D9", "学校进了 D9。985 已经是旧档。榜单、把柄或评分还没到世界一流。"),
+      top: end("顶尖学府", "985", "牌子已经是 985。再往上是 D9，这一届没有进。"),
       key: end("国家重点", "211", "学校停在 211 这一档。大专已经过去了。"),
       college: end("升本止步", "本科", "本科牌子拿到了。再往上的学术、理学和排名，这一届没有凑齐。"),
       vocational: end("大专收场", "未升", "十四年用完，学校还是大专。有的系变强了，学校没有升上去。"),
@@ -2062,9 +2200,10 @@ function resolveHelp(state, teacher, ask) {
     if (state.crisisDone && state.heat >= 92) return book.downfall;
 
     if (!finalYear && state.year < YEARS) return null;
-    const elite = state.tier >= 3 && band.index >= 6 && state.heat <= 30 && state.wound <= 8 && state.score >= 74;
+    const elite = state.tier >= 4 && band.index >= 6 && state.heat <= 30 && state.wound <= 8 && state.score >= 74;
     if (elite) return book.world;
     if (maxDept.strength >= 84 && minStrength <= 28 && maxLead && maxLead.leverage) return book.warlord;
+    if (state.tier >= 4) return book.d9;
     if (state.tier >= 3) return book.top;
     if (state.tier >= 2) return book.key;
     if (state.bribes === 0 && state.compliance >= 78 && state.reports === 0) {
@@ -2077,8 +2216,16 @@ function resolveHelp(state, teacher, ask) {
     return book.vocational;
   }
 
-  function freshYear(state) {
-    return state;
+  function seasonName(state) {
+    return SEASONS[state.season || 0];
+  }
+
+  function ensureSeason(state) {
+    if (!state || !state.depts) return;
+    if (state.season == null) {
+      state.season = 0;
+      if (state.actionsLeft > 1) state.actionsLeft = 1;
+    }
   }
 
   function render(state) {
@@ -2148,7 +2295,7 @@ function resolveHelp(state, teacher, ask) {
     return '<div class="shell intro">' + appBar("一届任期 · 十四年") +
       '<section class="hello">' +
       '<div class="hello-top"><div><h1>从一所大专开始</h1>' +
-      '<p class="lede">学校还是大专。先本科，再 211，再 985，然后是国际榜。教师会贪污，也会贿赂你。收下，把柄就在别人手里。</p></div>' +
+      '<p class="lede">学校还是大专。先本科，再 211，再 985，再 D9，然后是国际榜。一年分春夏秋冬，一季一件事。教师会贪污，也会贿赂你。收下，把柄就在别人手里。</p></div>' +
       campusArt(false) + '</div></section>' +
       '<section class="card"><h2>这一局怎么走</h2><ul class="rules">' +
       '<li><strong>升档</strong>看综合评分、理学、各系短板、风纪和国际影响。每年只能重点建设一个系，理工上去时，文法和医学会往下掉。</li>' +
@@ -2165,6 +2312,7 @@ function resolveHelp(state, teacher, ask) {
   }
 
   let screen = "do";
+  let peopleFilter = "all";
 
   const NAV = [["do", "办事", "home"], ["school", "学校", "build"], ["people", "教师", "recruit"], ["apply", "申报", "apply"]];
 
@@ -2185,7 +2333,7 @@ function resolveHelp(state, teacher, ask) {
   function tabBar() {
     return '<nav class="tabs">' + NAV.map(function (item) {
       return '<button type="button" data-act="tab" data-arg="' + item[0] + '"' +
-        (screen === item[0] ? ' class="on"' : '') + '>' + item[1] + '</button>';
+        (screen === item[0] ? ' class="on"' : '') + '>' + icon(item[2]) + '<span>' + item[1] + '</span></button>';
     }).join("") + '</nav>';
   }
 
@@ -2197,7 +2345,7 @@ function resolveHelp(state, teacher, ask) {
     if (screen === "do") {
       return '<header class="top"><span class="home">' + icon("home") + '</span><b>' + esc(state.schoolName) + '</b></header>';
     }
-    const titles = { school: "学校", people: "现在的人", apply: "申报" };
+    const titles = { school: "学校", people: "教师", apply: "申报" };
     return '<header class="top"><button type="button" class="back" data-act="tab" data-arg="do" aria-label="返回">' + icon("back") + '</button><b>' + titles[screen] + '</b></header>';
   }
 
@@ -2214,16 +2362,37 @@ function resolveHelp(state, teacher, ask) {
   }
 
   function numberStrip(state) {
+    const heat = state.heat >= 80 ? "bad" : state.heat >= 55 ? "near" : "";
+    const wound = state.wound >= 30 ? "bad" : state.wound >= 16 ? "near" : "";
     return '<div class="strip">' +
       miniStat("score", "评分", state.score) +
       miniStat("coin", "经费", state.funds) +
       miniStat("students", "报考", state.enrollment || 0) +
       miniStat("shield", "风纪", state.compliance) +
+      miniStat("book", "学术", state.academic) +
+      miniStat("world", "国际", state.international) +
+      miniStat("teach", "教学", state.teaching) +
+      miniStat("voice", "声誉", state.reputation) +
+      miniStat("inspect", "把柄", state.heat, heat) +
+      miniStat("office", "创伤", state.wound, wound) +
       '</div>';
   }
 
-  function miniStat(iconName, label, value) {
-    return '<div><span class="pico">' + icon(iconName) + '</span><b>' + value + '</b><em>' + label + '</em></div>';
+  function yearCard(state) {
+    const passed = state.season || 0;
+    const pct = Math.round((passed / 4) * 100);
+    const notes = state.log || [];
+    const body = notes.length
+      ? '<ul class="log">' + notes.map(function (line) { return '<li>' + esc(line) + '</li>'; }).join("") + '</ul>'
+      : '<p class="meta">这一年还没留下备忘。办完一件事，会记在这里。</p>';
+    return '<section class="card yearcard"><div class="sumtop"><div><h2>今年做了什么</h2>' +
+      '<p class="meta">' + seasonName(state) + ' · 四季里过完了 ' + passed + ' 季</p></div>' +
+      '<div class="ring sm" style="--p:' + pct + '"><span><b>' + pct + '</b><em>%</em></span></div></div>' +
+      body + '</section>';
+  }
+
+  function miniStat(iconName, label, value, tone) {
+    return '<div class="' + (tone || "") + '"><span class="pico">' + icon(iconName) + '</span><b>' + value + '</b><em>' + label + '</em></div>';
   }
 
   function glanceLine(state) {
@@ -2236,50 +2405,67 @@ function resolveHelp(state, teacher, ask) {
     if (state.scene && state.scene.kind === "bulletin") return bulletinSheet(state);
     if (state.scene) return decisionHead(state) + glanceLine(state) + decisionButtons(state);
     return '<section class="hello"><div class="hello-top"><div><h1>校长，您好！</h1>' +
-      '<p class="meta">今天是第 ' + state.year + ' 年 / ' + YEARS + '，还能做 ' + state.actionsLeft + ' 件事</p></div>' +
+      '<p class="meta">今天是第 ' + state.year + ' 年 · ' + seasonName(state) + ' / ' + YEARS + '</p></div>' +
       campusArt(false) + '</div>' + numberStrip(state) + '</section>' +
-      '<p class="deptline">' + state.depts.map((d) => deptName(d.id) + " " + d.strength).join(" · ") + '</p>' +
+      yearCard(state) +
+      '<h2 class="sect">这一季可以办</h2>' +
       decisionButtons(state);
   }
 
   function schoolSheet(state) {
     const band = worldBand(rankScore(state));
     const review = state.year % 2 === 0 ? " · 年终评审" : "";
-    const notes = state.log.map((l) => '<li>' + esc(l) + '</li>').join("");
     return pendingBanner(state) +
       '<section class="card schoolhead"><span class="cap">' + icon("cap") + '</span><div><h2>' + esc(state.schoolName) + '</h2>' +
-      '<p class="meta">寰球榜 ' + band.label + ' · 东亚 ' + regionBand(rankScore(state)) + review + '</p></div></section>' +
+      '<p class="meta">第 ' + state.year + ' 年 · ' + seasonName(state) + review + '</p>' +
+      (state.lastJobs ? '<p class="meta">去年就业：' + esc(state.lastJobs) + '</p>' : '') + '</div></section>' +
       ladderHtml(state) +
-      '<section class="card"><h2>六个系</h2>' + state.depts.map((d) => deptHtml(state, d)).join("") + '</section>' +
-      '<section class="card"><h2>数字</h2><div class="stats">' + statsHtml(state) + '</div></section>' +
-      (notes ? '<section class="card"><h2>本年备忘</h2><ul class="log">' + notes + '</ul></section>' : '');
+      '<section class="card"><h2>学校概况</h2><div class="facts">' +
+      '<div><span>综合评分</span><b>' + state.score + '</b></div>' +
+      '<div><span>办学层次</span><b>' + TIERS[state.tier].name + '</b></div>' +
+      '<div><span>寰球榜</span><b>' + band.label + '</b></div>' +
+      '<div><span>东亚</span><b>' + regionBand(rankScore(state)) + '</b></div></div></section>' +
+      '<section class="card"><h2>六个系</h2><div class="depts">' + state.depts.map((d) => deptHtml(state, d)).join("") + '</div></section>';
   }
 
   function peopleSheet(state) {
+    const canHire = !state.scene && state.actionsLeft > 0 && state.funds >= 14;
     return pendingBanner(state) +
-      '<section class="card people">' + facultyHtml(state) + '</section>';
+      rankFilters() +
+      '<section class="card people">' + facultyHtml(state) + '</section>' +
+      '<button class="primary" data-act="action" data-arg="recruit"' + (canHire ? "" : " disabled") + '>引进人才<em>14</em></button>';
+  }
+
+  function rankFilters() {
+    const ranks = [["all", "全部"], ["3", "教授"], ["2", "副教授"], ["1", "讲师"], ["0", "助教"]];
+    return '<div class="filters">' + ranks.map(function (r) {
+      return '<button type="button" data-act="filter" data-arg="' + r[0] + '"' +
+        (peopleFilter === r[0] ? ' class="on"' : '') + '>' + r[1] + '</button>';
+    }).join("") + '</div>';
   }
 
   function applySheet(state) {
     const g = gates(state);
     if (!g) {
       return pendingBanner(state) +
-        '<section class="card schoolhead"><span class="cap">' + icon("cap") + '</span><div><h2>985</h2>' +
-        '<p class="meta">已经站在这一档。剩下的是榜单，还有把柄会不会炸。</p></div></section>';
+        '<section class="card schoolhead"><span class="cap">' + icon("cap") + '</span><div><h2>D9</h2>' +
+        '<p class="meta">已经进了 D9。剩下的是榜单，还有把柄会不会炸。</p></div></section>';
     }
     const prize = tierPrize(state.tier + 1);
     const ready = g.items.every(function (it) { return it.ok; });
+    const missing = g.items.filter(function (it) { return !it.ok; }).length;
     const used = !!state.used.apply;
     const short = state.funds < g.cost;
     const disabled = used || short;
-    let hint = "过了：" + prize.lines.join("，") + "。把柄不动。";
-    if (!ready) hint = "还有条件没到。点下去会告诉你缺什么，这次不消耗行动。";
-    if (short) hint = "经费不够，现在递不出去。";
-    if (used) hint = "今年已经申报过了。";
+    let banner = '<p class="ready">已满足全部条件。过了：' + esc(prize.lines.join("，")) + '。把柄不动。</p>';
+    if (!ready) banner = '<p class="ready gap">还有 ' + missing + ' 项没到。点下去只说明缺什么，不消耗行动。</p>';
+    if (short) banner = '<p class="ready gap">经费不够，现在递不出去。</p>';
+    if (used) banner = '<p class="ready gap">今年已经申报过了。</p>';
     return pendingBanner(state) +
       '<section class="card schoolhead"><span class="cap">' + icon("cap") + '</span><div><h2>' + esc(g.title) + '</h2>' +
-      '<p class="meta">' + hint + '</p></div></section>' +
+      '<p class="meta">过了：' + esc(prize.lines.join("，")) + '。把柄不动。</p></div></section>' +
       '<section class="card"><ul class="gates">' + g.items.map(gateHtml).join("") + '</ul></section>' +
+      banner +
       '<button class="primary" data-act="action" data-arg="apply"' + (disabled ? " disabled" : "") + '>申请' + esc(g.title) + '<em>' + g.cost + '</em></button>';
   }
 
@@ -2296,11 +2482,11 @@ function resolveHelp(state, teacher, ask) {
     return "";
   }
 
-  function deptHtml(state, d) {
+  function deptHtml(state, d, slim) {
     const meta = DEPTS.find((x) => x.id === d.id);
     return '<div class="dept"><div class="row"><b>' + meta.name + '</b><span>' + d.strength + '</span></div>' +
       '<div class="track"><i class="' + deptTone(d.strength) + '" style="width:' + d.strength + '%"></i></div>' +
-      '<div class="hint">' + meta.role + '</div></div>';
+      (slim ? '' : '<div class="hint">' + meta.role + '</div>') + '</div>';
   }
 
   function gateHtml(it) {
@@ -2318,24 +2504,6 @@ function resolveHelp(state, teacher, ask) {
       '<div class="track"><i class="' + tone + '" style="width:' + pct.toFixed(1) + '%"></i></div></li>';
   }
 
-  function statsHtml(state) {
-    const tiles = [
-      ["学术", state.academic, "book", ""],
-      ["国际影响", state.international, "world", ""],
-      ["教学", state.teaching, "teach", ""],
-      ["声誉", state.reputation, "voice", ""]
-    ];
-    const rows = [
-      ["报考热度", state.enrollment || 0, ""],
-      ["经费", state.funds, ""],
-      ["风纪", state.compliance, ""],
-      ["把柄风险", state.heat, state.heat >= 80 ? "bad" : state.heat >= 55 ? "near" : ""],
-      ["举报创伤", state.wound, state.wound >= 30 ? "bad" : state.wound >= 16 ? "near" : ""]
-    ];
-    return tiles.map((r) => '<div class="tile">' + icon(r[2]) + '<b>' + r[1] + '</b><em>' + r[0] + '</em></div>').join("") +
-      '<div class="rest">' + rows.map((r) => '<div class="stat ' + r[2] + '"><em>' + r[0] + '</em><b>' + r[1] + '</b></div>').join("") + '</div>';
-  }
-
   function backgroundText(teacher) {
     if (!teacher.school) {
       teacher.pedigree = 0;
@@ -2346,18 +2514,31 @@ function resolveHelp(state, teacher, ask) {
     return teacher.school + " · " + teacher.degree + " · 擅长" + skillById(teacher.skill).name;
   }
 
+  function teacherCard(state, meta, t) {
+    return '<div class="person"><span class="avatar">' + esc(t.name.slice(0, 1)) + '</span><div class="who"><div class="nameline"><b>' + esc(t.name) + '</b>' +
+      (t.leverage ? '<span class="tag warn">把柄</span>' : '') +
+      (isChair(state, t) ? '<span class="tag">学科带头人</span>' : '') +
+      (t.skimming ? '<span class="tag warn">账上有洞</span>' : '') +
+      '</div><div class="meta">' + meta.name + ' · ' + RANKS[t.rank] +
+      ' · ' + esc(backgroundText(t)) +
+      ' · 才华 ' + t.talent + '</div></div></div>';
+  }
+
   function facultyHtml(state) {
-    const cards = DEPTS.map((meta) => {
-      const people = deptTeachers(state, meta.id);
-      if (!people.length) return '<div class="person empty"><span class="avatar">' + icon("recruit") + '</span><div><b>' + meta.name + '</b><div class="meta">没有带头人，年底这个系会往下掉。</div></div></div>';
-      return people.map((t) => '<div class="person"><span class="avatar">' + esc(t.name.slice(0, 1)) + '</span><div class="who"><div class="nameline"><b>' + esc(t.name) + '</b>' +
-        (t.leverage ? '<span class="tag warn">把柄</span>' : '') +
-        (isChair(state, t) ? '<span class="tag">学科带头人</span>' : '') +
-        (t.skimming ? '<span class="tag warn">账上有洞</span>' : '') +
-        '</div><div class="meta">' + meta.name + ' · ' + RANKS[t.rank] +
-        ' · ' + esc(backgroundText(t)) +
-        ' · 才华 ' + t.talent + '</div></div></div>').join("");
+    const cards = [];
+    DEPTS.forEach(function (meta) {
+      const people = deptTeachers(state, meta.id).filter(function (t) {
+        return peopleFilter === "all" || String(t.rank) === peopleFilter;
+      });
+      if (!people.length) {
+        if (peopleFilter === "all") {
+          cards.push('<div class="person empty"><span class="avatar">' + icon("recruit") + '</span><div><b>' + meta.name + '</b><div class="meta">没有带头人，年底这个系会往下掉。</div></div></div>');
+        }
+        return;
+      }
+      people.forEach(function (t) { cards.push(teacherCard(state, meta, t)); });
     });
+    if (!cards.length) return '<p class="meta">这一档现在没有人。</p>';
     return cards.join("");
   }
 
@@ -2406,8 +2587,8 @@ function resolveHelp(state, teacher, ask) {
     return '<div class="actions">' + list.map((a) => {
       const disabled = a.disabled || (a.once && state.used[a.id]) || state.funds < a.cost;
       const tail = a.cost ? '<em>' + a.cost + '</em>' : '<em class="go">' + icon("go") + '</em>';
-      return '<button data-act="action" data-arg="' + a.id + '"' + (disabled ? " disabled" : "") + '><span class="ico">' + icon(icons[a.id] || "build") + '</span><b>' + a.name +
-        '</b>' + tail + '</button>';
+      return '<button data-act="action" data-arg="' + a.id + '"' + (disabled ? " disabled" : "") + '><span class="ico">' + icon(icons[a.id] || "build") + '</span><span class="actxt"><b>' + a.name +
+        '</b><small>' + esc(a.desc) + '</small></span>' + tail + '</button>';
     }).join("") + '</div>';
   }
 
@@ -2456,7 +2637,10 @@ function resolveHelp(state, teacher, ask) {
     }
 
     function syncSafe(s) {
-      if (s && s.depts) s.score = computeScore(s);
+      if (s && s.depts) {
+        ensureSeason(s);
+        s.score = computeScore(s);
+      }
     }
 
     app.addEventListener("click", (event) => {
@@ -2492,6 +2676,11 @@ function resolveHelp(state, teacher, ask) {
         screen = btn.dataset.arg || "do";
         draw();
         window.scrollTo(0, 0);
+        return;
+      }
+      if (act === "filter") {
+        peopleFilter = btn.dataset.arg || "all";
+        draw();
         return;
       }
       if (act === "action") {
