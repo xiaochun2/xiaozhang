@@ -3693,9 +3693,19 @@ function resolveHelp(state, teacher, ask) {
 
   let screen = "do";
   let peopleFilter = "all";
+  let schoolPane = "overview";
   let origin = "old";
 
   const NAV = [["do", "办事", "home"], ["school", "学校", "build"], ["people", "教师", "recruit"], ["apply", "申报", "apply"]];
+
+  function scoreGrade(score) {
+    if (score >= 90) return "A+";
+    if (score >= 80) return "A";
+    if (score >= 70) return "B+";
+    if (score >= 60) return "B";
+    if (score >= 45) return "C";
+    return "D";
+  }
 
   function renderGame(state) {
     return '<div class="shell play">' + sideNav() +
@@ -3802,18 +3812,82 @@ function resolveHelp(state, teacher, ask) {
     return '<p class="glance">' + nums + " · " + depts + "</p>";
   }
 
+  function powerCard(state) {
+    const grade = scoreGrade(state.score);
+    return '<section class="power-card">' +
+      '<div class="power-copy"><p class="eyebrow">学校综合实力</p><div class="power-row"><b>' + state.score + '</b><span class="grade">' + grade + '</span></div>' +
+      '<p class="meta">第 ' + state.year + ' 年 · ' + seasonName(state) + ' · ' + tierLabel(state) + '</p></div>' +
+      '<div class="power-side">' +
+      '<div><em>经费</em><b>' + wan(state.funds) + '</b></div>' +
+      '<div><em>报考</em><b>' + (state.enrollment || 0) + '</b></div>' +
+      '<div><em>风纪</em><b>' + state.compliance + '</b></div>' +
+      '</div></section>';
+  }
+
+  function quickNav() {
+    const items = [
+      ["do", "办事", "home"],
+      ["school", "学校", "build"],
+      ["people", "教师", "recruit"],
+      ["apply", "申报", "apply"]
+    ];
+    return '<div class="quick-nav">' + items.map(function (item) {
+      return '<button type="button" class="quick-item" data-act="tab" data-arg="' + item[0] + '">' +
+        '<span class="quick-ico">' + icon(item[2]) + '</span><em>' + item[1] + '</em></button>';
+    }).join("") + '</div>';
+  }
+
+  function assistantBanner(state) {
+    const list = actionsCatalog(state).filter(function (a) {
+      return !(a.disabled || (a.once && state.used[a.id]));
+    });
+    const n = list.length;
+    const src = Assets.characters && Assets.characters["student-female-01"];
+    return '<section class="assist-card">' +
+      (src ? '<span class="assist-art">' + artImg(src, "art-character", "助手") + '</span>' : '') +
+      '<div class="assist-bubble"><b>校长，您好！</b><p>本季还有 <em>' + n + '</em> 项事务可以处理。点卡片右侧按钮即可办理。</p></div></section>';
+  }
+
+  function taskCards(state, list) {
+    const icons = { build: "build", campus: "campus", recruit: "recruit", world: "world", donate: "donate", office: "office", gov: "gov", students: "students", inspect: "inspect", teach: "teach", project: "book", apply: "apply" };
+    return '<div class="task-list">' + list.map(function (a) {
+      const disabled = a.disabled || (a.once && state.used[a.id]) || state.funds < a.cost || (!a.free && state.actionsLeft <= 0);
+      return '<article class="task-card' + (disabled ? " off" : "") + '">' +
+        '<span class="ico">' + icon(icons[a.id] || "build") + '</span>' +
+        '<div class="actxt"><b>' + esc(a.name) + '</b><small>' + esc(a.desc) + '</small>' +
+        (a.cost ? '<em class="cost">' + wan(a.cost) + '</em>' : '<em class="cost free">不占本季</em>') +
+        '</div>' +
+        '<button type="button" class="task-go" data-act="action" data-arg="' + a.id + '"' + (disabled ? " disabled" : "") + '>' +
+        (disabled ? "暂不可" : "去处理") + '</button></article>';
+    }).join("") + '</div>';
+  }
+
   function doSheet(state) {
     if (state.scene && state.scene.kind === "bulletin") return bulletinSheet(state);
     if (state.scene) {
-      return '<section class="dialog">' + decisionHead(state) + glanceLine(state) + '</section>' + decisionButtons(state);
+      return '<section class="event-card">' +
+        '<div class="event-visual">' + (heroArt("gate") || campusArt(false)) + '</div>' +
+        '<div class="event-body">' + decisionHead(state) + glanceLine(state) + '</div></section>' +
+        decisionButtons(state);
     }
-    return '<section class="banner character"><div class="banner-copy"><p class="eyebrow">经营首页</p><h1>校长，您好！</h1>' +
-      '<p class="meta">今天是第 ' + state.year + ' 年 · ' + seasonName(state) + ' / ' + YEARS + '</p></div>' +
-      (heroArt("principal") || heroArt("gate") || campusArt(false)) + '</section>' +
-      '<section class="card"><h2>学校态势</h2>' + numberStrip(state) + '</section>' +
-      yearCard(state) +
-      '<h2 class="sect">这一季可以办</h2>' +
-      decisionButtons(state);
+    const list = actionsCatalog(state);
+    const season = list.filter(function (a) { return !a.free; });
+    const inquiry = list.filter(function (a) { return a.free; });
+    return '<section class="dash-hero">' +
+      '<div class="dash-bg">' + (heroArt("home") || campusArt(false)) + '</div>' +
+      '<div class="dash-fg">' +
+      '<div class="dash-user">' + (heroArt("principal") || "") +
+      '<div><p class="eyebrow">经营首页</p><h1>校长，您好！</h1>' +
+      '<p class="meta">' + esc(state.schoolName) + ' · 第 ' + state.year + ' 年 · ' + seasonName(state) + '</p></div></div>' +
+      '</div></section>' +
+      powerCard(state) +
+      quickNav() +
+      assistantBanner(state) +
+      '<section class="card soft"><div class="card-head"><h2>待办事务</h2><span class="meta">这一季</span></div>' +
+      taskCards(state, season) + '</section>' +
+      '<section class="card soft"><div class="card-head"><h2>今年还可以过问</h2><span class="meta">不占本季</span></div>' +
+      taskCards(state, inquiry) + '</section>' +
+      yearCard(state);
   }
 
   function tierLabel(state) {
@@ -3840,54 +3914,86 @@ function resolveHelp(state, teacher, ask) {
     }).join("") + "</div>";
   }
 
-  function campusCard(state) {
+  function schoolTabs() {
+    const panes = [["overview", "概况"], ["build", "建设"], ["depts", "学科"]];
+    return '<div class="seg-tabs">' + panes.map(function (p) {
+      return '<button type="button" data-act="school-pane" data-arg="' + p[0] + '"' +
+        (schoolPane === p[0] ? ' class="on"' : '') + '>' + p[1] + '</button>';
+    }).join("") + '</div>';
+  }
+
+  function deptChips(state) {
+    return '<div class="dept-chips">' + state.depts.map(function (d) {
+      const meta = DEPTS.find(function (x) { return x.id === d.id; });
+      return '<span class="dept-chip"><b>' + meta.name + '</b><em>' + d.strength + '</em></span>';
+    }).join("") + '</div>';
+  }
+
+  function schoolOverviewPane(state) {
+    const campus = campusOf(state);
+    const band = worldBand(rankScore(state));
+    const points = (state.masterPoints || []).map(deptName);
+    return ladderHtml(state) +
+      '<section class="card glass"><h2>学校概况</h2><div class="facts compact">' +
+      '<div><span>综合评分</span><b>' + state.score + '</b></div>' +
+      '<div><span>办学层次</span><b>' + tierLabel(state) + '</b></div>' +
+      '<div><span>寰球榜</span><b>' + band.label + '</b></div>' +
+      '<div><span>东亚</span><b>' + regionBand(rankScore(state)) + '</b></div>' +
+      '<div><span>占地</span><b>' + campus.mu + ' 亩</b></div>' +
+      '<div><span>在校生</span><b>' + campus.students + '</b></div>' +
+      '<div><span>容量</span><b>' + capacityOf(state) + '</b></div>' +
+      '<div><span>教职工</span><b>' + (state.teachers ? state.teachers.length : 0) + '</b></div>' +
+      '<div><span>路线</span><b>' + trackLabel(state) + '</b></div>' +
+      '<div><span>来路</span><b>' + originName(state.origin) + '</b></div>' +
+      '<div><span>专业硕士点</span><b>' + (points.length ? esc(points.join("、")) : "无") + '</b></div>' +
+      '<div><span>省里的文</span><b>' + esc(policyName(state)) + '</b></div>' +
+      '</div>' + deptChips(state) + '</section>';
+  }
+
+  function schoolBuildPane(state) {
     const campus = campusOf(state);
     const pending = campus.pending ? buildingById(campus.pending) : null;
     const built = BUILDINGS.filter(function (b) { return buildingCount(state, b.id) > 0; })
       .map(function (b) { return b.name + " " + buildingCount(state, b.id); });
-    const points = (state.masterPoints || []).map(deptName);
-    return '<section class="card"><h2>校园建设</h2>' + campusBuildingGrid(state) +
-      '<div class="facts compact">' +
-      '<div><span>占地</span><b>' + campus.mu + ' 亩</b></div>' +
-      '<div><span>在校生</span><b>' + campus.students + '</b></div>' +
-      '<div><span>容量</span><b>' + capacityOf(state) + '</b></div>' +
-      '<div><span>在建</span><b>' + (pending ? esc(pending.name) : "没有") + '</b></div>' +
-      '<div><span>路线</span><b>' + trackLabel(state) + '</b></div>' +
-      '<div><span>来路</span><b>' + originName(state.origin) + '</b></div>' +
-      '<div><span>省里的文</span><b>' + esc(policyName(state)) + '</b></div>' +
-      '<div><span>专业硕士点</span><b>' + (points.length ? esc(points.join("、")) : "无") + '</b></div>' +
-      '<div><span>规划</span><b>' + esc(state.strategy && state.year <= (state.strategyUntil || 0) ? (strategyById(state.strategy) || {}).name || "未定" : "未定") + '</b></div>' +
-      '<div><span>对面势头</span><b>' + (state.rivalMomentum || 0) + '</b></div>' +
-      '<div><span>还贷</span><b>' + ((state.loanYears || 0) > 0 ? "还有 " + state.loanYears + " 年" : "没有") + '</b></div>' +
-      '</div><p class="meta">' + (built.length ? esc(built.join(" · ")) : "教学楼和宿舍各有一座。") + '</p></section>';
+    return '<section class="card"><div class="card-head"><h2>校园建设</h2><span class="meta">' +
+      (pending ? ("在建：" + esc(pending.name)) : "暂无在建") + '</span></div>' +
+      campusBuildingGrid(state) +
+      '<p class="meta">' + (built.length ? esc(built.join(" · ")) : "教学楼和宿舍各有一座。") + '</p></section>';
+  }
+
+  function schoolDeptsPane(state) {
+    return '<section class="card"><h2>六个系</h2><div class="depts">' +
+      state.depts.map(function (d) { return deptHtml(state, d); }).join("") + '</div></section>';
   }
 
   function schoolSheet(state) {
-    const band = worldBand(rankScore(state));
     const review = state.year % 2 === 0 ? " · 年终评审" : "";
+    let body = schoolOverviewPane(state);
+    if (schoolPane === "build") body = schoolBuildPane(state);
+    if (schoolPane === "depts") body = schoolDeptsPane(state);
     return pendingBanner(state) +
-      '<section class="banner"><div class="banner-copy"><p class="eyebrow">' + tierLabel(state) + review + '</p><h2>' + esc(state.schoolName) + '</h2>' +
+      '<section class="school-hero">' +
+      '<div class="school-hero-art">' + (heroArt("home") || campusArt(true)) + '</div>' +
+      '<div class="school-hero-copy"><p class="eyebrow">' + tierLabel(state) + review + '</p>' +
+      '<h2>' + esc(state.schoolName) + '</h2>' +
       '<p class="meta">第 ' + state.year + ' 年 · ' + seasonName(state) +
-      (state.lastJobs ? ' · 去年就业：' + esc(state.lastJobs) : '') + '</p></div>' +
-      (heroArt("home") || campusArt(true)) + '</section>' +
-      ladderHtml(state) +
-      '<section class="card"><h2>学校概况</h2><div class="facts compact">' +
-      '<div><span>综合评分</span><b>' + state.score + '</b></div>' +
-      '<div><span>办学层次</span><b>' + tierLabel(state) + '</b></div>' +
-      '<div><span>寰球榜</span><b>' + band.label + '</b></div>' +
-      '<div><span>东亚</span><b>' + regionBand(rankScore(state)) + '</b></div></div></section>' +
-      campusCard(state) +
-      '<section class="card"><h2>六个系</h2><div class="depts">' + state.depts.map((d) => deptHtml(state, d)).join("") + '</div></section>';
+      (state.lastJobs ? ' · 去年就业：' + esc(state.lastJobs) : '') + '</p></div></section>' +
+      schoolTabs() + body;
   }
 
   function peopleSheet(state) {
     const canHire = !state.scene && state.actionsLeft > 0 && state.funds >= 14;
     const total = state.teachers ? state.teachers.length : 0;
+    const chairs = state.teachers ? state.teachers.filter(function (t) { return isChair(state, t); }).length : 0;
     return pendingBanner(state) +
-      '<div class="people-head"><div><b>' + total + '</b><span>在职教师</span></div><div><b>' + DEPTS.length + '</b><span>六个系</span></div></div>' +
+      '<div class="people-head">' +
+      '<div class="people-stats"><div><b>' + total + '</b><span>在职教师</span></div>' +
+      '<div><b>' + chairs + '</b><span>带头人</span></div>' +
+      '<div><b>' + DEPTS.length + '</b><span>六个系</span></div></div>' +
+      '<button class="primary slim" data-act="action" data-arg="recruit"' + (canHire ? "" : " disabled") + '>引进人才<em>' + wan(14) + '</em></button>' +
+      '</div>' +
       rankFilters() +
-      '<section class="card people">' + facultyHtml(state) + '</section>' +
-      '<button class="primary" data-act="action" data-arg="recruit"' + (canHire ? "" : " disabled") + '>引进人才<em>' + wan(14) + '</em></button>';
+      '<section class="card people">' + facultyHtml(state) + '</section>';
   }
 
   function rankFilters() {
@@ -3904,19 +4010,30 @@ function resolveHelp(state, teacher, ask) {
       '<ul class="gates">' + items.map(gateHtml).join("") + '</ul></section>';
   }
 
-  function applyHero(title, meta) {
-    return '<section class="banner"><div class="banner-copy"><p class="eyebrow">升格申报</p><h2>' + esc(title) + '</h2>' +
-      '<p class="meta">' + esc(meta) + '</p></div>' + (heroArt("apply") || campusArt(true)) + '</section>';
+  function applyStepper(readyCount, total) {
+    const ratio = total ? readyCount / total : 0;
+    const step = ratio >= 1 ? 2 : ratio >= 0.5 ? 1 : 0;
+    const labels = ["条件准备", "提交申报", "等待结果"];
+    return '<ol class="stepper">' + labels.map(function (label, i) {
+      const cls = i < step ? "done" : i === step ? "on" : "";
+      return '<li class="' + cls + '"><span>' + (i + 1) + '</span><em>' + label + '</em></li>';
+    }).join("") + '</ol>';
+  }
+
+  function projectCard(title, meta, items, cta) {
+    const ok = items.filter(function (it) { return it.ok; }).length;
+    return '<section class="project-card">' +
+      '<div class="project-top"><div><h2>' + esc(title) + '</h2><p class="meta">' + esc(meta) + '</p></div>' +
+      '<span class="project-count">' + ok + '/' + items.length + '</span></div>' +
+      applyStepper(ok, items.length) +
+      '<ul class="gates compact">' + items.map(gateHtml).join("") + '</ul>' +
+      (cta || "") + '</section>';
   }
 
   function applyButton(state, label, cost) {
     const used = !!state.used.apply;
     const blocked = state.applyBlockYear === state.year;
-    let banner = '<p class="ready">点下去先选。条件不够只说明缺什么，不消耗行动。</p>';
-    if (blocked) banner = '<p class="ready gap">整合的下一年不能申报。</p>';
-    else if (used) banner = '<p class="ready gap">今年已经申报过了。</p>';
-    return banner +
-      '<button class="accent" data-act="action" data-arg="apply"' + (used || blocked ? " disabled" : "") + '>' +
+    return '<button class="accent" data-act="action" data-arg="apply"' + (used || blocked ? " disabled" : "") + '>' +
       esc(label) + (cost ? '<em>' + wan(cost) + '</em>' : '') + '</button>';
   }
 
@@ -3925,29 +4042,34 @@ function resolveHelp(state, teacher, ask) {
       const academic = pathGates(state, "academic");
       const vocational = pathGates(state, "vocational");
       return pendingBanner(state) +
-        applyHero("升本", "选一条。普通本科可以继续到 212。职业本科升完就封顶。") +
-        gateBlock("普通本科", "经费 " + wan(academic.cost) + "。过了可以申报 212。", academic.items) +
-        gateBlock("职业本科", "经费 " + wan(vocational.cost) + "。过了不能再申报 212。", vocational.items) +
+        '<section class="apply-hero"><div class="apply-hero-copy"><p class="eyebrow">当前可申报 · 2 项</p><h2>升本项目</h2>' +
+        '<p class="meta">普通本科可继续冲 212；职业本科升完封顶。</p></div>' +
+        (heroArt("apply") || campusArt(true)) + '</section>' +
+        projectCard("普通本科", "经费 " + wan(academic.cost) + "。过了可以申报 212。", academic.items) +
+        projectCard("职业本科", "经费 " + wan(vocational.cost) + "。过了不能再申报 212。", vocational.items) +
         applyButton(state, "选择升本路线", 0);
     }
     if (state.track === "vocational") {
-      const blocks = MASTER_DEPTS.map(function (id) {
+      const full = state.masterPoints.length >= 2;
+      const cards = MASTER_DEPTS.map(function (id) {
         if (state.masterPoints.indexOf(id) >= 0) {
-          return '<section class="card"><h2>' + esc(deptName(id)) + '专业硕士点</h2><p class="ready">已经拿到。</p></section>';
+          return '<section class="project-card done"><div class="project-top"><div><h2>' + esc(deptName(id)) + '专业硕士点</h2><p class="meta">已经拿到。</p></div><span class="project-count">完成</span></div></section>';
         }
         const g = masterGates(state, id);
-        return gateBlock(g.title, "经费 " + wan(g.cost) + "。职业本科办满三年才能递。", g.items);
+        return projectCard(g.title, "经费 " + wan(g.cost) + "。职业本科办满三年才能递。", g.items);
       }).join("");
-      const full = state.masterPoints.length >= 2;
       return pendingBanner(state) +
-        applyHero("专业硕士点", "职业本科到此封顶。212、986、D9 不再接收。最多两个点。整合去找政府。") +
-        blocks +
+        '<section class="apply-hero"><div class="apply-hero-copy"><p class="eyebrow">当前可申报</p><h2>专业硕士点</h2>' +
+        '<p class="meta">职业本科封顶路径。最多两个点。</p></div>' +
+        (heroArt("apply") || campusArt(true)) + '</section>' + cards +
         (full ? '<p class="ready">两个点都在。</p>' : applyButton(state, "申报专业硕士点", 0));
     }
     const g = gates(state);
     if (!g) {
       return pendingBanner(state) +
-        applyHero("D9", "已经进了 D9。剩下的是榜单，还有把柄会不会炸。");
+        '<section class="apply-hero"><div class="apply-hero-copy"><p class="eyebrow">申报中心</p><h2>D9</h2>' +
+        '<p class="meta">已经进了 D9。剩下的是榜单，还有把柄会不会炸。</p></div>' +
+        (heroArt("apply") || campusArt(true)) + '</section>';
     }
     const prize = tierPrize(state.tier + 1);
     const ready = g.items.every(function (it) { return it.ok; });
@@ -3955,15 +4077,16 @@ function resolveHelp(state, teacher, ask) {
     const used = !!state.used.apply;
     const short = state.funds < g.cost;
     const disabled = used || short;
-    let banner = '<p class="ready">已满足全部条件。过了：' + esc(prize.lines.join("，")) + '。省里按这一档送评。</p>';
-    if (!ready) banner = '<p class="ready gap">还有 ' + missing + ' 项没到。点下去只说明缺什么，不消耗行动。</p>';
-    if (short) banner = '<p class="ready gap">经费不够，现在递不出去。</p>';
-    if (used) banner = '<p class="ready gap">今年已经申报过了。</p>';
+    let tip = '<p class="ready">已满足全部条件。过了：' + esc(prize.lines.join("，")) + '。</p>';
+    if (!ready) tip = '<p class="ready gap">还有 ' + missing + ' 项没到。</p>';
+    if (short) tip = '<p class="ready gap">经费不够，现在递不出去。</p>';
+    if (used) tip = '<p class="ready gap">今年已经申报过了。</p>';
     return pendingBanner(state) +
-      applyHero(g.title, "过了：" + prize.lines.join("，") + "。省里按这一档送评。把柄不动。") +
-      '<section class="card"><ul class="gates">' + g.items.map(gateHtml).join("") + '</ul></section>' +
-      banner +
-      '<button class="accent" data-act="action" data-arg="apply"' + (disabled ? " disabled" : "") + '>申请' + esc(g.title) + '<em>' + wan(g.cost) + '</em></button>';
+      '<section class="apply-hero"><div class="apply-hero-copy"><p class="eyebrow">当前可申报</p><h2>' + esc(g.title) + '</h2>' +
+      '<p class="meta">过了：' + esc(prize.lines.join("，")) + '。省里按这一档送评。</p></div>' +
+      (heroArt("apply") || campusArt(true)) + '</section>' +
+      projectCard(g.title, "经费 " + wan(g.cost) + "。把柄不动。", g.items,
+        tip + '<button class="accent" data-act="action" data-arg="apply"' + (disabled ? " disabled" : "") + '>申请' + esc(g.title) + '<em>' + wan(g.cost) + '</em></button>');
   }
 
   function ladderHtml(state) {
@@ -4032,10 +4155,9 @@ function resolveHelp(state, teacher, ask) {
       (isChair(state, t) ? '<span class="tag">学科带头人</span>' : '') +
       (t.skimming ? '<span class="tag warn">账上有洞</span>' : '') +
       (isDual(t) ? '<span class="tag">双师</span>' : '') +
-      '<span class="tag">忠诚 ' + t.loyalty + '</span>' +
-      '</div><div class="meta">' + meta.name +
-      ' · ' + esc(backgroundText(t)) +
-      ' · 才华 ' + t.talent + '</div></div></div>';
+      '</div><div class="meta">' + meta.name + ' · ' + esc(backgroundText(t)) + '</div>' +
+      '<div class="person-scores"><span><em>才华</em><b>' + t.talent + '</b></span><span><em>忠诚</em><b>' + t.loyalty + '</b></span></div>' +
+      '</div></div>';
   }
 
   function facultyHtml(state) {
@@ -4095,17 +4217,12 @@ function resolveHelp(state, teacher, ask) {
   function decisionButtons(state) {
     if (state.scene) {
       const only = state.scene.choices.length === 1;
-      return '<div class="choices">' + state.scene.choices.map((c) =>
-        '<button class="' + (only ? "primary" : "") + '" data-act="choice" data-arg="' + esc(c.id) + '"><b>' + esc(c.label) + '</b>' +
+      return '<div class="choices event-choices">' + state.scene.choices.map((c) =>
+        '<button class="' + (only ? "primary" : "choice-card") + '" data-act="choice" data-arg="' + esc(c.id) + '"><b>' + esc(c.label) + '</b>' +
         (c.detail ? '<small>' + esc(c.detail) + '</small>' : '') + '</button>'
       ).join("") + '</div>';
     }
-    const list = actionsCatalog(state);
-    const season = list.filter(function (a) { return !a.free; });
-    const inquiry = list.filter(function (a) { return a.free; });
-    return actionGroup(state, season) +
-      '<h2 class="sect">今年还可以过问</h2><p class="meta asknote">不占这一季，一年各一次。</p>' +
-      actionGroup(state, inquiry);
+    return "";
   }
 
   function actionGroup(state, list) {
@@ -4215,6 +4332,11 @@ function resolveHelp(state, teacher, ask) {
       }
       if (act === "filter") {
         peopleFilter = btn.dataset.arg || "all";
+        draw();
+        return;
+      }
+      if (act === "school-pane") {
+        schoolPane = btn.dataset.arg || "overview";
         draw();
         return;
       }
