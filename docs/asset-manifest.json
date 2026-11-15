@@ -1,0 +1,418 @@
+{
+  "project": "Campus Management Game",
+  "version": "2.0-complete",
+  "artStyle": "精致日系校园经营风；明亮蓝白校园、薄荷绿与奶油橙点缀、轻量卡通渲染",
+  "individual_assets": [
+    {
+      "id": "academic",
+      "file": "assets/buildings/academic.png",
+      "type": "building",
+      "format": "PNG",
+      "alpha": true,
+      "width": 372,
+      "height": 229
+    },
+    {
+      "id": "administration",
+      "file": "assets/buildings/administration.png",
+      "type": "building",
+      "format": "PNG",
+      "alpha": true,
+      "width": 375,
+      "height": 248
+    },
+    {
+      "id": "arts-center",
+      "file": "assets/buildings/arts-center.png",
+      "type": "building",
+      "format": "PNG",
+      "alpha": true,
+      "width": 364,
+      "height": 230
+    },
+    {
+      "id": "auditorium",
+      "file": "assets/buildings/auditorium.png",
+      "type": "building",
+      "format": "PNG",
+      "alpha": true,
+      "width": 371,
+      "height": 227
+    },
+    {
+      "id": "campus-gate",
+      "file": "assets/buildings/campus-gate.png",
+      "type": "building",
+      "format": "PNG",
+      "alpha": true,
+      "width": 375,
+      "height": 204
+    },
+    {
+      "id": "dining",
+      "file": "assets/buildings/dining.png",
+      "type": "building",
+      "format": "PNG",
+      "alpha": true,
+      "width": 371,
+      "height": 205
+    },
+    {
+      "id": "dormitory",
+      "file": "assets/buildings/dormitory.png",
+      "type": "building",
+      "format": "PNG",
+      "alpha": true,
+      "width": 382,
+      "height": 228
+    },
+    {
+      "id": "greenhouse",
+      "file": "assets/buildings/greenhouse.png",
+      "type": "building",
+      "format": "PNG",
+      "alpha": true,
+      "width": 368,
+      "height": 221
+    },
+    {
+      "id": "gymnasium",
+      "file": "assets/buildings/gymnasium.png",
+      "type": "building",
+      "format": "PNG",
+      "alpha": true,
+      "width": 372,
+      "height": 210
+    },
+    {
+      "id": "innovation",
+      "file": "assets/buildings/innovation.png",
+      "type": "building",
+      "format": "PNG",
+      "alpha": true,
+      "width": 372,
+      "height": 225
+    },
+    {
+      "id": "international-center",
+      "file": "assets/buildings/international-center.png",
+      "type": "building",
+      "format": "PNG",
+      "alpha": true,
+      "width": 367,
+      "height": 226
+    },
+    {
+      "id": "library",
+      "file": "assets/buildings/library.png",
+      "type": "building",
+      "format": "PNG",
+      "alpha": true,
+      "width": 358,
+      "height": 221
+    },
+    {
+      "id": "medical",
+      "file": "assets/buildings/medical.png",
+      "type": "building",
+      "format": "PNG",
+      "alpha": true,
+      "width": 380,
+      "height": 222
+    },
+    {
+      "id": "science",
+      "file": "assets/buildings/science.png",
+      "type": "building",
+      "format": "PNG",
+      "alpha": true,
+      "width": 359,
+      "height": 235
+    },
+    {
+      "id": "stadium",
+      "file": "assets/buildings/stadium.png",
+      "type": "building",
+      "format": "PNG",
+      "alpha": true,
+      "width": 380,
+      "height": 231
+    },
+    {
+      "id": "student-activity",
+      "file": "assets/buildings/student-activity.png",
+      "type": "building",
+      "format": "PNG",
+      "alpha": true,
+      "width": 368,
+      "height": 223
+    },
+    {
+      "id": "administrator-female",
+      "file": "assets/characters/administrator-female.png",
+      "type": "character",
+      "format": "PNG",
+      "alpha": true,
+      "width": 141,
+      "height": 504
+    },
+    {
+      "id": "coach-male",
+      "file": "assets/characters/coach-male.png",
+      "type": "character",
+      "format": "PNG",
+      "alpha": true,
+      "width": 172,
+      "height": 494
+    },
+    {
+      "id": "librarian-female",
+      "file": "assets/characters/librarian-female.png",
+      "type": "character",
+      "format": "PNG",
+      "alpha": true,
+      "width": 155,
+      "height": 497
+    },
+    {
+      "id": "principal-male",
+      "file": "assets/characters/principal-male.png",
+      "type": "character",
+      "format": "PNG",
+      "alpha": true,
+      "width": 156,
+      "height": 501
+    },
+    {
+      "id": "professor-male",
+      "file": "assets/characters/professor-male.png",
+      "type": "character",
+      "format": "PNG",
+      "alpha": true,
+      "width": 162,
+      "height": 504
+    },
+    {
+      "id": "staff-female",
+      "file": "assets/characters/staff-female.png",
+      "type": "character",
+      "format": "PNG",
+      "alpha": true,
+      "width": 135,
+      "height": 501
+    },
+    {
+      "id": "student-female-01",
+      "file": "assets/characters/student-female-01.png",
+      "type": "character",
+      "format": "PNG",
+      "alpha": true,
+      "width": 191,
+      "height": 497
+    },
+    {
+      "id": "student-female-02",
+      "file": "assets/characters/student-female-02.png",
+      "type": "character",
+      "format": "PNG",
+      "alpha": true,
+      "width": 195,
+      "height": 498
+    },
+    {
+      "id": "student-male-01",
+      "file": "assets/characters/student-male-01.png",
+      "type": "character",
+      "format": "PNG",
+      "alpha": true,
+      "width": 164,
+      "height": 502
+    },
+    {
+      "id": "student-male-02",
+      "file": "assets/characters/student-male-02.png",
+      "type": "character",
+      "format": "PNG",
+      "alpha": true,
+      "width": 178,
+      "height": 500
+    },
+    {
+      "id": "teacher-female",
+      "file": "assets/characters/teacher-female.png",
+      "type": "character",
+      "format": "PNG",
+      "alpha": true,
+      "width": 178,
+      "height": 489
+    },
+    {
+      "id": "teacher-male",
+      "file": "assets/characters/teacher-male.png",
+      "type": "character",
+      "format": "PNG",
+      "alpha": true,
+      "width": 159,
+      "height": 502
+    }
+  ],
+  "atlases_and_references": [
+    {
+      "id": "01_game_icons_atlas",
+      "file": "assets/icons/01_game_icons_atlas.png",
+      "type": "atlas_or_reference",
+      "category": "icons",
+      "width": 510,
+      "height": 378,
+      "individually_sliced": false
+    },
+    {
+      "id": "02_ui_components_atlas",
+      "file": "assets/ui/02_ui_components_atlas.png",
+      "type": "atlas_or_reference",
+      "category": "ui",
+      "width": 479,
+      "height": 380,
+      "individually_sliced": false
+    },
+    {
+      "id": "07_dialogs_atlas",
+      "file": "assets/ui/07_dialogs_atlas.png",
+      "type": "atlas_or_reference",
+      "category": "ui",
+      "width": 648,
+      "height": 288,
+      "individually_sliced": false
+    },
+    {
+      "id": "03_props_atlas",
+      "file": "assets/props/03_props_atlas.png",
+      "type": "atlas_or_reference",
+      "category": "props",
+      "width": 522,
+      "height": 380,
+      "individually_sliced": false
+    },
+    {
+      "id": "05_map_tiles_atlas",
+      "file": "assets/map/05_map_tiles_atlas.png",
+      "type": "atlas_or_reference",
+      "category": "map",
+      "width": 426,
+      "height": 327,
+      "individually_sliced": false
+    },
+    {
+      "id": "04_scenery_atlas",
+      "file": "assets/decorations/04_scenery_atlas.png",
+      "type": "atlas_or_reference",
+      "category": "decorations",
+      "width": 563,
+      "height": 327,
+      "individually_sliced": false
+    },
+    {
+      "id": "06_effects_atlas",
+      "file": "assets/effects/06_effects_atlas.png",
+      "type": "atlas_or_reference",
+      "category": "effects",
+      "width": 522,
+      "height": 327,
+      "individually_sliced": false
+    },
+    {
+      "id": "08_achievement_badges_atlas",
+      "file": "assets/badges/08_achievement_badges_atlas.png",
+      "type": "atlas_or_reference",
+      "category": "badges",
+      "width": 346,
+      "height": 288,
+      "individually_sliced": false
+    },
+    {
+      "id": "00_full_reference_sheet",
+      "file": "assets/reference_atlases/00_full_reference_sheet.png",
+      "type": "atlas_or_reference",
+      "category": "reference_atlases",
+      "width": 1536,
+      "height": 1024,
+      "individually_sliced": false
+    },
+    {
+      "id": "09_extra_assets_atlas",
+      "file": "assets/reference_atlases/09_extra_assets_atlas.png",
+      "type": "atlas_or_reference",
+      "category": "reference_atlases",
+      "width": 517,
+      "height": 288,
+      "individually_sliced": false
+    },
+    {
+      "id": "buildings_16_reference_sheet",
+      "file": "assets/reference_atlases/buildings_16_reference_sheet.png",
+      "type": "atlas_or_reference",
+      "category": "reference_atlases",
+      "width": 1536,
+      "height": 1024,
+      "individually_sliced": false
+    },
+    {
+      "id": "campus_building_atlas_01",
+      "file": "assets/reference_atlases/campus_building_atlas_01.png",
+      "type": "atlas_or_reference",
+      "category": "reference_atlases",
+      "width": 1536,
+      "height": 1024,
+      "individually_sliced": false
+    },
+    {
+      "id": "campus_character_atlas_01",
+      "file": "assets/reference_atlases/campus_character_atlas_01.png",
+      "type": "atlas_or_reference",
+      "category": "reference_atlases",
+      "width": 1536,
+      "height": 1024,
+      "individually_sliced": false
+    },
+    {
+      "id": "complete_master_asset_atlas",
+      "file": "assets/reference_atlases/complete_master_asset_atlas.png",
+      "type": "atlas_or_reference",
+      "category": "reference_atlases",
+      "width": 1536,
+      "height": 1024,
+      "individually_sliced": false
+    },
+    {
+      "id": "library_overview_v1",
+      "file": "assets/reference_atlases/library_overview_v1.png",
+      "type": "atlas_or_reference",
+      "category": "reference_atlases",
+      "width": 1536,
+      "height": 1024,
+      "individually_sliced": false
+    },
+    {
+      "id": "library_overview_v2",
+      "file": "assets/reference_atlases/library_overview_v2.png",
+      "type": "atlas_or_reference",
+      "category": "reference_atlases",
+      "width": 1536,
+      "height": 1024,
+      "individually_sliced": false
+    }
+  ],
+  "counts": {
+    "individual_buildings": 16,
+    "individual_characters": 12,
+    "individual_png_total": 28,
+    "atlas_and_reference_files": 16
+  },
+  "integration_notes": [
+    "buildings/ 与 characters/ 是独立透明 PNG，可直接在项目中引用。",
+    "icons/ui/props/map/decorations/effects/badges 中目前是分类图集，不是逐个透明切片；作为美术参考或裁切源使用。",
+    "reference_atlases/ 为整体风格、排版和图集参考，不应作为单个 UI 控件或单体精灵拉伸。",
+    "生成图内的小字可能存在错字，正式界面文案必须由前端文本渲染。",
+    "人物为静态立绘，不包含逐帧动作、骨骼或 Spine 动画。"
+  ]
+}
