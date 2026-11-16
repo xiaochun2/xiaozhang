@@ -4,6 +4,7 @@
   else root.SchoolGame = api;
   if (typeof document !== "undefined") api.mount(document.getElementById("app"));
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
+  const UI = typeof CampusUI !== "undefined" ? CampusUI : null;
   const YEARS = 14;
   const SEASONS = ["春", "夏", "秋", "冬"];
   const SAVE_KEY = "president-sim-v4";
@@ -3573,30 +3574,21 @@ function resolveHelp(state, teacher, ask) {
     return renderGame(state);
   }
 
-  function icon(name) {
-    const paths = {
-      home: '<path d="M4 11 12 4l8 7"/><path d="M6 10.5V20h12V10.5"/>',
-      back: '<path d="M15 5 8 12l7 7"/>',
-      go: '<path d="M9 5l7 7-7 7"/>',
-      build: '<path d="M4 20h16"/><path d="M6 20V9l6-5 6 5v11"/><path d="M10 20v-5h4v5"/>',
-      campus: '<path d="M3 20h18"/><path d="M5 20V10h6v10"/><path d="M13 20V6h6v14"/><path d="M15 9h2M15 13h2M7 13h2"/>',
-      recruit: '<circle cx="9" cy="8" r="2.6"/><path d="M4 19a5 5 0 0 1 10 0"/><circle cx="17" cy="9" r="2"/><path d="M16 19a4 4 0 0 1 3.5-3.9"/>',
-      world: '<circle cx="12" cy="12" r="8"/><path d="M4 12h16"/><path d="M12 4c2.4 2.6 2.4 13.4 0 16-2.4-2.6-2.4-13.4 0-16z"/>',
-      donate: '<path d="M12 20s-7-4.4-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.6-7 9-7 9z"/>',
-      office: '<rect x="4" y="7" width="16" height="12" rx="2"/><path d="M8 7V5h8v2"/><path d="M4 12h16"/>',
-      gov: '<path d="M4 10h16"/><path d="M6 10v8M10 10v8M14 10v8M18 10v8"/><path d="M3 18h18"/><path d="M12 3 3 10h18z"/>',
-      students: '<path d="M3 9 12 5l9 4-9 4-9-4z"/><path d="M7 11.5V16c2 1.4 8 1.4 10 0v-4.5"/>',
-      inspect: '<circle cx="11" cy="11" r="6"/><path d="m20 20-3.5-3.5"/>',
-      teach: '<path d="M6 4h9l3 3v13H6z"/><path d="M15 4v3h3M8 12h8M8 16h5"/>',
-      apply: '<path d="M3 10 12 6l9 4-9 4-9-4z"/><path d="M7 12v4c2 1.4 8 1.4 10 0v-4"/>',
-      score: '<path d="M4 19V9M4 19h16M8 19v-5M12 19V6M16 19v-8"/>',
-      coin: '<circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.2 10.2h5.6M9.2 13.8h5.6"/>',
-      shield: '<path d="M12 3 5 6v6c0 4 3 6.6 7 8 4-1.4 7-4 7-8V6z"/>',
-      book: '<path d="M5 5h6a3 3 0 0 1 3 3v11a3 3 0 0 0-3-3H5z"/><path d="M19 5h-6a3 3 0 0 0-3 3v11a3 3 0 0 1 3-3h6z"/>',
-      voice: '<path d="M4 10v4l9 4V6z"/><path d="M16 9.5a4 4 0 0 1 0 5"/>',
-      cap: '<path d="M3 10 12 6l9 4-9 4-9-4z"/><path d="M7 12v4c2 1.4 8 1.4 10 0v-4"/>'
-    };
-    return '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + (paths[name] || paths.home) + '</svg>';
+  /* 全局图标：日式治愈系 soft-3D 切片（public/game-assets/assets/icons/campus） */
+  const CampusIco = (typeof globalThis !== "undefined" && globalThis.CampusIcons) || null;
+
+  function icon(name, opts) {
+    if (CampusIco && CampusIco.icon) return CampusIco.icon(name, opts);
+    return "";
+  }
+
+  function peopleResourceChips(state) {
+    const grade = scoreGrade(state.score);
+    const scoreLabel = state.score + " · " + grade;
+    return '<div class="campus-resource top-meta people-resources">' +
+      '<span class="campus-resource__chip chip is-score">' + icon("star", { tone: "gold", size: 16 }) +
+      esc(scoreLabel) + "</span>" +
+      '<span class="campus-resource__chip chip is-funds">' + icon("coin", { size: 16 }) + esc(wan(state.funds)) + "</span></div>";
   }
 
   const Assets = (typeof globalThis !== "undefined" && globalThis.GameAssets) || {};
@@ -3653,10 +3645,32 @@ function resolveHelp(state, teacher, ask) {
   }
 
   function resourceChips(state) {
+    const grade = scoreGrade(state.score);
+    const scoreLabel = state.score + " · " + grade;
+    if (UI) {
+      return UI.resourceBar([
+        { iconHtml: icon("score"), value: scoreLabel },
+        { iconHtml: icon("coin"), value: wan(state.funds), tone: "funds" }
+      ]);
+    }
     return '<div class="top-meta">' +
-      '<span class="chip">' + icon("score") + esc(String(state.score)) + '</span>' +
+      '<span class="chip">' + icon("score") + esc(scoreLabel) + '</span>' +
       '<span class="chip funds">' + icon("coin") + esc(wan(state.funds)) + '</span>' +
       '</div>';
+  }
+
+  function seasonGreeting(state) {
+    const s = seasonName(state);
+    if (s === "夏") return { title: "校长，夏天好！", body: "校园正热闹，抓紧这一季把人带起来。" };
+    if (s === "秋") return { title: "校长，秋天好！", body: "收成的季节，把师资和账本看仔细。" };
+    if (s === "冬") return { title: "校长，冬天好！", body: "沉住气，把队伍稳住，再迎下一春。" };
+    return { title: "校长，您好！", body: "新学期开始了，先把校园打理起来吧。" };
+  }
+
+  function principalAvatarChip() {
+    const art = heroArt("principal");
+    if (art) return '<span class="top-avatar">' + art + "</span>";
+    return '<span class="top-avatar top-avatar--fallback">' + icon("cap") + "</span>";
   }
 
   function tile(label, value) {
@@ -3686,17 +3700,29 @@ function resolveHelp(state, teacher, ask) {
       '<label for="school">学校的名字</label>' +
       '<input id="school" type="text" maxlength="12" value="江湾" />' +
       '<div class="choices">' +
-      '<button class="primary" data-act="start">开始任期</button>' +
-      (saved ? '<button data-act="continue">继续上一届</button>' : '') +
+      (UI
+        ? UI.button({ variant: "primary", label: "开始任期", attrs: { "data-act": "start" } })
+        : '<button class="primary" data-act="start">开始任期</button>') +
+      (saved
+        ? (UI
+          ? UI.button({ variant: "secondary", label: "继续上一届", block: true, attrs: { "data-act": "continue" } })
+          : '<button data-act="continue">继续上一届</button>')
+        : '') +
       '</div></div>';
   }
 
   let screen = "do";
   let peopleFilter = "all";
+  let peopleFilterOpen = false;
+  let peopleDetailId = null;
+  let peoplePane = "overview";
   let schoolPane = "overview";
+  let doPane = "tasks";
+  let applyGateFilter = "all";
+  let applyExpandId = null;
   let origin = "old";
 
-  const NAV = [["do", "办事", "home"], ["school", "学校", "build"], ["people", "教师", "recruit"], ["apply", "申报", "apply"]];
+  const NAV = [["do", "办事", "tasks"], ["school", "学校", "school"], ["people", "教师", "teachers"], ["apply", "申报", "apply"]];
 
   function scoreGrade(score) {
     if (score >= 90) return "A+";
@@ -3722,6 +3748,14 @@ function resolveHelp(state, teacher, ask) {
   }
 
   function tabBar() {
+    if (UI) {
+      return UI.bottomNav({
+        active: screen,
+        items: NAV.map(function (item) {
+          return { id: item[0], label: item[1], iconHtml: icon(item[2]) };
+        })
+      });
+    }
     return '<nav class="tabs">' + NAV.map(function (item) {
       return '<button type="button" data-act="tab" data-arg="' + item[0] + '"' +
         (screen === item[0] ? ' class="on"' : '') + '>' + icon(item[2]) + '<span>' + item[1] + '</span></button>';
@@ -3734,11 +3768,18 @@ function resolveHelp(state, teacher, ask) {
       return '<header class="top"><b>' + title + '</b>' + resourceChips(state) + '</header>';
     }
     if (screen === "do") {
-      return '<header class="top"><span class="home">' + icon("home") + '</span>' +
-        '<div class="brand"><b>' + esc(state.schoolName) + '</b><small>第 ' + state.year + ' 年 · ' + seasonName(state) + '</small></div>' +
-        resourceChips(state) + '</header>';
+      return '<header class="top top--ghost top--do" aria-hidden="true"></header>';
     }
-    const titles = { school: "学校", people: "教师", apply: "申报" };
+    if (screen === "people" && peopleDetailId) {
+      return '<header class="top top--spring"><button type="button" class="back" data-act="teacher-back" aria-label="返回名册">' + icon("back", { size: 20 }) + '</button>' +
+        principalAvatarChip() +
+        '<div class="brand"><b>教师详情</b><small>' + esc(state.schoolName) + '</small></div>' +
+        peopleResourceChips(state) + '</header>';
+    }
+    if (screen === "people") {
+      return '<header class="top top--ghost"><button type="button" class="back" data-act="tab" data-arg="do" aria-label="返回">' + icon("back", { size: 20 }) + '</button></header>';
+    }
+    const titles = { school: "学校", apply: "申报" };
     return '<header class="top"><button type="button" class="back" data-act="tab" data-arg="do" aria-label="返回">' + icon("back") + '</button>' +
       '<b>' + titles[screen] + '</b>' + resourceChips(state) + '</header>';
   }
@@ -3781,28 +3822,67 @@ function resolveHelp(state, teacher, ask) {
     return coreStats(state) + moreStats(state);
   }
 
-  function yearCard(state) {
+  function yearEventsList(state) {
+    const chronicle = chronicleOf(state).slice().reverse();
+    const rows = [];
+    chronicle.forEach(function (bucket) {
+      const current = bucket.year === state.year;
+      const notes = bucket.notes && bucket.notes.length
+        ? bucket.notes
+        : (current ? ["这一年还在开篇，董事会刚把印交过来。"] : ["这一年没有留下备忘。"]);
+      notes.forEach(function (line) {
+        rows.push({
+          year: bucket.year,
+          current: current,
+          text: line
+        });
+      });
+    });
+    return '<section class="campus-card card soft do-events">' +
+      '<div class="card-head do-section__head">' + icon("calendar", { size: 16 }) +
+      '<h2>每年做的事情</h2><span class="meta">按年备忘</span></div>' +
+      '<ul class="do-events__list">' + rows.map(function (row) {
+        return '<li class="do-events__item' + (row.current ? " is-now" : "") + '">' +
+          '<span class="do-events__year">第' + row.year + '年</span>' +
+          '<p>' + esc(row.text) + '</p></li>';
+      }).join("") + '</ul></section>';
+  }
+
+  function yearResultsPane(state) {
     const passed = state.season || 0;
     const pct = Math.round((passed / 4) * 100);
+    const grade = scoreGrade(state.score);
     const chronicle = chronicleOf(state).slice().reverse();
-    const body = '<div class="yearscroll">' + chronicle.map(function (bucket) {
+    const blocks = chronicle.map(function (bucket) {
       const current = bucket.year === state.year;
-      const items = bucket.notes.length
+      const notes = bucket.notes && bucket.notes.length
         ? '<ul class="log">' + bucket.notes.map(function (line) { return '<li>' + esc(line) + '</li>'; }).join("") + '</ul>'
-        : '<p class="meta">这一年还没留下备忘。</p>';
-      return '<section class="yearblock' + (current ? ' now' : '') + '"><h3>第 ' + bucket.year + ' 年' + (current ? ' · 今年' : '') + '</h3>' + items + '</section>';
-    }).join("") + '</div>';
-    return '<section class="card yearcard"><div class="sumtop"><div><h2>今年做了什么</h2>' +
-      '<p class="meta">' + seasonName(state) + ' · 四季里过完了 ' + passed + ' 季 · 按年分开</p></div>' +
-      '<div class="ring sm" style="--p:' + pct + '"><span><b>' + pct + '</b><em>%</em></span></div></div>' +
-      body + '</section>';
+        : '<p class="meta">这一年还没有结算备忘。</p>';
+      return '<section class="do-result-year' + (current ? " is-now" : "") + '">' +
+        '<div class="do-result-year__head"><h3>第 ' + bucket.year + ' 年' + (current ? " · 今年" : "") + '</h3>' +
+        (current
+          ? '<span class="do-result-year__pill">' + seasonName(state) + ' · 过完 ' + passed + ' 季</span>'
+          : '<span class="do-result-year__pill">已过完</span>') +
+        '</div>' + notes + '</section>';
+    }).join("");
+    return '<section class="campus-card card soft do-section do-results">' +
+      '<div class="card-head do-section__head">' + icon("growth", { size: 18 }) +
+      '<h2>每年的结果</h2><span class="meta">年度回顾</span></div>' +
+      '<div class="do-results__summary">' +
+      '<div class="do-results__score"><b>' + state.score + '<em>/100</em></b><span class="do-results__grade">' + grade + '</span>' +
+      '<p>第 ' + state.year + ' 年 · ' + tierLabel(state) + '</p></div>' +
+      '<div class="do-results__ring ring sm" style="--p:' + pct + '"><span><b>' + pct + '</b><em>%</em></span></div>' +
+      '</div>' +
+      '<div class="do-results__years">' + blocks + '</div></section>';
   }
 
   function miniStat(iconName, label, value, tone) {
+    if (UI) return UI.statCard({ iconHtml: icon(iconName), label: label, value: value, tone: tone || "" });
     return '<div class="' + (tone || "") + '"><span class="pico">' + icon(iconName) + '</span><b>' + value + '</b><em>' + label + '</em></div>';
   }
 
   function statCard(iconName, label, value, tone) {
+    if (UI) return UI.statCard({ iconHtml: icon(iconName), label: label, value: value, tone: tone || "" });
     return '<div class="stat-card ' + (tone || "") + '"><span class="pico">' + icon(iconName) + '</span><b>' + value + '</b><em>' + label + '</em></div>';
   }
 
@@ -3812,82 +3892,124 @@ function resolveHelp(state, teacher, ask) {
     return '<p class="glance">' + nums + " · " + depts + "</p>";
   }
 
-  function powerCard(state) {
+  function powerBlock(state) {
     const grade = scoreGrade(state.score);
-    return '<section class="power-card">' +
-      '<div class="power-copy"><p class="eyebrow">学校综合实力</p><div class="power-row"><b>' + state.score + '</b><span class="grade">' + grade + '</span></div>' +
-      '<p class="meta">第 ' + state.year + ' 年 · ' + seasonName(state) + ' · ' + tierLabel(state) + '</p></div>' +
-      '<div class="power-side">' +
-      '<div><em>经费</em><b>' + wan(state.funds) + '</b></div>' +
-      '<div><em>报考</em><b>' + (state.enrollment || 0) + '</b></div>' +
-      '<div><em>风纪</em><b>' + state.compliance + '</b></div>' +
-      '</div></section>';
+    const sides = [
+      ["build", "经营", wan(state.funds)],
+      ["students", "招生", String(state.enrollment || 0)],
+      ["voice", "舆论", String(state.compliance)]
+    ];
+    return '<div class="do-power__main school-power__main">' +
+      '<div class="do-power__grade" aria-label="评级 ' + grade + '"><span>' + grade + '</span></div>' +
+      '<div class="do-power__score"><b>' + state.score + '<em>/100</em></b>' +
+      '<p>第 ' + state.year + ' 年 · ' + seasonName(state) + ' · ' + tierLabel(state) + '</p></div>' +
+      '<div class="do-power__side">' + sides.map(function (s) {
+        return '<div class="do-power__stat"><span class="do-power__ico">' + icon(s[0], { size: 16 }) +
+          '</span><em>' + s[1] + '</em><b>' + s[2] + '</b></div>';
+      }).join("") + '</div></div>';
   }
 
-  function quickNav() {
+  function doPaneTabs() {
     const items = [
-      ["do", "办事", "home"],
-      ["school", "学校", "build"],
-      ["people", "教师", "recruit"],
-      ["apply", "申报", "apply"]
+      ["tasks", "待办事项", "tasks"],
+      ["results", "每年的结果", "growth"],
+      ["inquiry", "今年过问", "office"]
     ];
-    return '<div class="quick-nav">' + items.map(function (item) {
-      return '<button type="button" class="quick-item" data-act="tab" data-arg="' + item[0] + '">' +
-        '<span class="quick-ico">' + icon(item[2]) + '</span><em>' + item[1] + '</em></button>';
+    return '<div class="quick-nav do-quick do-pane-tabs" role="tablist">' + items.map(function (item) {
+      const on = doPane === item[0];
+      return '<button type="button" role="tab" class="quick-item' + (on ? " is-on" : "") +
+        '" data-act="do-pane" data-arg="' + item[0] + '"' + (on ? ' aria-selected="true"' : "") + '>' +
+        '<span class="quick-ico">' + icon(item[2], { size: 22 }) + '</span><em>' + item[1] + '</em></button>';
     }).join("") + '</div>';
   }
 
-  function assistantBanner(state) {
-    const list = actionsCatalog(state).filter(function (a) {
-      return !(a.disabled || (a.once && state.used[a.id]));
-    });
-    const n = list.length;
-    const src = Assets.characters && Assets.characters["student-female-01"];
-    return '<section class="assist-card">' +
-      (src ? '<span class="assist-art">' + artImg(src, "art-character", "助手") + '</span>' : '') +
-      '<div class="assist-bubble"><b>校长，您好！</b><p>本季还有 <em>' + n + '</em> 项事务可以处理。点卡片右侧按钮即可办理。</p></div></section>';
+  function doPaneBody(state, season, inquiry) {
+    if (doPane === "results" || doPane === "year") return yearResultsPane(state);
+    if (doPane === "inquiry") {
+      return '<section class="campus-card card soft do-section">' +
+        '<div class="card-head do-section__head">' + icon("office", { size: 18 }) +
+        '<h2>今年过问</h2><span class="meta">不占本季</span></div>' +
+        inquiryGrid(state, inquiry) + '</section>';
+    }
+    return '<section class="campus-card card soft do-section do-section--tasks">' +
+      '<div class="card-head do-section__head">' + icon("tasks", { size: 18 }) +
+      '<h2>待办事项</h2><span class="meta">这一季</span></div>' +
+      taskCards(state, season) + '</section>';
+  }
+
+  function taskStatus(state, a) {
+    const used = !!(a.once && state.used[a.id]);
+    const locked = !!(a.disabled || state.funds < a.cost || (!a.free && state.actionsLeft <= 0));
+    if (used) return { kind: "done", cta: "本季已完成", disabled: true, tag: "" };
+    if (a.disabled) return { kind: "lock", cta: "条件未达成", disabled: true, tag: "" };
+    if (locked) return { kind: "lock", cta: "暂不可", disabled: true, tag: "" };
+    return { kind: "open", cta: "去处理", disabled: false, tag: "待处理" };
   }
 
   function taskCards(state, list) {
     const icons = { build: "build", campus: "campus", recruit: "recruit", world: "world", donate: "donate", office: "office", gov: "gov", students: "students", inspect: "inspect", teach: "teach", project: "book", apply: "apply" };
-    return '<div class="task-list">' + list.map(function (a) {
-      const disabled = a.disabled || (a.once && state.used[a.id]) || state.funds < a.cost || (!a.free && state.actionsLeft <= 0);
-      return '<article class="task-card' + (disabled ? " off" : "") + '">' +
-        '<span class="ico">' + icon(icons[a.id] || "build") + '</span>' +
-        '<div class="actxt"><b>' + esc(a.name) + '</b><small>' + esc(a.desc) + '</small>' +
-        (a.cost ? '<em class="cost">' + wan(a.cost) + '</em>' : '<em class="cost free">不占本季</em>') +
-        '</div>' +
-        '<button type="button" class="task-go" data-act="action" data-arg="' + a.id + '"' + (disabled ? " disabled" : "") + '>' +
-        (disabled ? "暂不可" : "去处理") + '</button></article>';
+    return '<div class="task-list do-task-list">' + list.map(function (a) {
+      const st = taskStatus(state, a);
+      const costHtml = a.cost
+        ? '<em class="cost">费用：' + wan(a.cost) + '</em>'
+        : '<em class="cost free">不占本季</em>';
+      const tag = st.tag ? '<span class="do-task-tag">' + st.tag + '</span>' : '';
+      const trail = st.kind === "done"
+        ? '<span class="do-task-trail is-done">' + icon("ok", { size: 18 }) + '<em>本季已完成</em></span>'
+        : st.kind === "lock" && a.disabled
+          ? '<span class="do-task-trail is-lock">' + icon("shield", { size: 16 }) + '<em>条件未达成</em></span>'
+          : '<button type="button" class="campus-task__go task-go" data-act="action" data-arg="' + a.id + '"' +
+            (st.disabled ? " disabled" : "") + ">" + st.cta + "</button>";
+      return '<article class="campus-task task-card do-task' + (st.disabled ? " is-off off" : "") + '">' +
+        '<span class="campus-task__ico ico">' + icon(icons[a.id] || "build", { size: 22 }) + '</span>' +
+        '<div class="campus-task__body actxt"><div class="do-task-name"><b>' + esc(a.name) + '</b>' + tag + '</div>' +
+        '<small class="do-task-desc">' + esc(a.desc) + '</small>' + costHtml + '</div>' + trail + '</article>';
+    }).join("") + '</div>';
+  }
+
+  function inquiryGrid(state, list) {
+    const icons = { donate: "donate", office: "office", gov: "gov", students: "students" };
+    return '<div class="do-inquiry-grid">' + list.map(function (a) {
+      const st = taskStatus(state, a);
+      return '<article class="do-inquiry-card' + (st.disabled ? " is-off" : "") + '">' +
+        '<span class="do-inquiry-card__ico">' + icon(icons[a.id] || "office", { size: 28 }) + '</span>' +
+        '<div class="do-inquiry-card__copy"><b>' + esc(a.name) + '</b><small>' + esc(a.desc) + '</small></div>' +
+        '<button type="button" class="do-inquiry-card__go" data-act="action" data-arg="' + a.id + '"' +
+        (st.disabled ? " disabled" : "") + ">" + (st.disabled ? st.cta : "去处理") + "</button></article>";
     }).join("") + '</div>';
   }
 
   function doSheet(state) {
     if (state.scene && state.scene.kind === "bulletin") return bulletinSheet(state);
     if (state.scene) {
-      return '<section class="event-card">' +
-        '<div class="event-visual">' + (heroArt("gate") || campusArt(false)) + '</div>' +
-        '<div class="event-body">' + decisionHead(state) + glanceLine(state) + '</div></section>' +
+      const body = decisionHead(state) + glanceLine(state);
+      const visual = heroArt("gate") || campusArt(false);
+      return (UI
+        ? UI.eventCard({ visualHtml: visual, bodyHtml: body })
+        : '<section class="event-card"><div class="event-visual">' + visual + '</div><div class="event-body">' + body + '</div></section>') +
         decisionButtons(state);
     }
     const list = actionsCatalog(state);
     const season = list.filter(function (a) { return !a.free; });
     const inquiry = list.filter(function (a) { return a.free; });
-    return '<section class="dash-hero">' +
-      '<div class="dash-bg">' + (heroArt("home") || campusArt(false)) + '</div>' +
-      '<div class="dash-fg">' +
-      '<div class="dash-user">' + (heroArt("principal") || "") +
-      '<div><p class="eyebrow">经营首页</p><h1>校长，您好！</h1>' +
-      '<p class="meta">' + esc(state.schoolName) + ' · 第 ' + state.year + ' 年 · ' + seasonName(state) + '</p></div></div>' +
+    const greet = seasonGreeting(state);
+    const grade = scoreGrade(state.score);
+    return '<section class="dash-hero do-hero">' +
+      '<div class="dash-bg do-hero__bg">' + (heroArt("home") || campusArt(false)) + '</div>' +
+      '<div class="dash-fg do-hero__fg">' +
+      '<div class="do-hero__top">' +
+      '<div class="do-hero__identity">' +
+      '<div class="do-hero__avatar">' + (heroArt("principal") || principalAvatarChip()) + '</div>' +
+      '<div class="do-hero__brand"><b>' + esc(state.schoolName) + '</b>' +
+      '<small>' + icon("cap", { size: 14 }) + '第 ' + state.year + ' 年 · ' + seasonName(state) + '季学期</small></div></div>' +
+      '<div class="do-hero__chips">' +
+      '<span class="chip is-score">' + icon("star", { tone: "gold", size: 14 }) + state.score + ' · ' + grade + '</span>' +
+      '<span class="chip funds is-funds">' + icon("coin", { size: 14 }) + wan(state.funds) + '</span></div></div>' +
+      '<div class="do-hero__greet"><h1>' + esc(greet.title) + '</h1><p>' + esc(greet.body) + '</p></div>' +
       '</div></section>' +
-      powerCard(state) +
-      quickNav() +
-      assistantBanner(state) +
-      '<section class="card soft"><div class="card-head"><h2>待办事务</h2><span class="meta">这一季</span></div>' +
-      taskCards(state, season) + '</section>' +
-      '<section class="card soft"><div class="card-head"><h2>今年还可以过问</h2><span class="meta">不占本季</span></div>' +
-      taskCards(state, inquiry) + '</section>' +
-      yearCard(state);
+      yearEventsList(state) +
+      doPaneTabs() +
+      doPaneBody(state, season, inquiry);
   }
 
   function tierLabel(state) {
@@ -3908,24 +4030,28 @@ function resolveHelp(state, teacher, ask) {
     return '<div class="campus-grid">' + owned.map(function (b) {
       const src = Assets.buildingSrc ? Assets.buildingSrc(b.id) : null;
       const count = buildingCount(state, b.id);
-      return '<figure class="campus-item">' +
-        (src ? artImg(src, "art-building", b.name) : '<span class="art-fallback">' + icon("build") + "</span>") +
+      const art = src ? artImg(src, "art-building", b.name) : '<span class="art-fallback">' + icon("build") + "</span>";
+      if (UI) return UI.buildingCard({ name: b.name, meta: "×" + count, artHtml: art });
+      return '<figure class="campus-item">' + art +
         "<figcaption><b>" + esc(b.name) + "</b><em>×" + count + "</em></figcaption></figure>";
     }).join("") + "</div>";
   }
 
   function schoolTabs() {
     const panes = [["overview", "概况"], ["build", "建设"], ["depts", "学科"]];
-    return '<div class="seg-tabs">' + panes.map(function (p) {
-      return '<button type="button" data-act="school-pane" data-arg="' + p[0] + '"' +
-        (schoolPane === p[0] ? ' class="on"' : '') + '>' + p[1] + '</button>';
+    return '<div class="seg-tabs school-tabs" role="tablist">' + panes.map(function (p) {
+      const on = schoolPane === p[0];
+      return '<button type="button" role="tab" class="' + (on ? "on is-on" : "") +
+        '" data-act="school-pane" data-arg="' + p[0] + '"' + (on ? ' aria-selected="true"' : "") + '>' +
+        p[1] + '</button>';
     }).join("") + '</div>';
   }
 
   function deptChips(state) {
-    return '<div class="dept-chips">' + state.depts.map(function (d) {
+    const tones = ["tone-sky", "tone-orange", "tone-blue", "tone-green", "tone-purple", "tone-teal"];
+    return '<div class="dept-chips school-dept-chips">' + state.depts.map(function (d, i) {
       const meta = DEPTS.find(function (x) { return x.id === d.id; });
-      return '<span class="dept-chip"><b>' + meta.name + '</b><em>' + d.strength + '</em></span>';
+      return '<span class="dept-chip ' + (tones[i] || "") + '"><b>' + meta.name + '</b><em>' + d.strength + '</em></span>';
     }).join("") + '</div>';
   }
 
@@ -3933,37 +4059,51 @@ function resolveHelp(state, teacher, ask) {
     const campus = campusOf(state);
     const band = worldBand(rankScore(state));
     const points = (state.masterPoints || []).map(deptName);
-    return ladderHtml(state) +
-      '<section class="card glass"><h2>学校概况</h2><div class="facts compact">' +
-      '<div><span>综合评分</span><b>' + state.score + '</b></div>' +
-      '<div><span>办学层次</span><b>' + tierLabel(state) + '</b></div>' +
-      '<div><span>寰球榜</span><b>' + band.label + '</b></div>' +
-      '<div><span>东亚</span><b>' + regionBand(rankScore(state)) + '</b></div>' +
-      '<div><span>占地</span><b>' + campus.mu + ' 亩</b></div>' +
-      '<div><span>在校生</span><b>' + campus.students + '</b></div>' +
-      '<div><span>容量</span><b>' + capacityOf(state) + '</b></div>' +
-      '<div><span>教职工</span><b>' + (state.teachers ? state.teachers.length : 0) + '</b></div>' +
-      '<div><span>路线</span><b>' + trackLabel(state) + '</b></div>' +
-      '<div><span>来路</span><b>' + originName(state.origin) + '</b></div>' +
-      '<div><span>专业硕士点</span><b>' + (points.length ? esc(points.join("、")) : "无") + '</b></div>' +
-      '<div><span>省里的文</span><b>' + esc(policyName(state)) + '</b></div>' +
-      '</div>' + deptChips(state) + '</section>';
+    const staff = state.teachers ? state.teachers.length : 0;
+    const facts = [
+      ["students", "在校生", String(campus.students)],
+      ["campus", "容量", String(capacityOf(state))],
+      ["teachers", "教职工", String(staff)],
+      ["growth", "路线", trackLabel(state)],
+      ["home", "来路", originName(state.origin)],
+      ["education", "专业硕士点", points.length ? points.join("、") : "无"],
+      ["cap", "办学层次", tierLabel(state)],
+      ["world", "寰球榜", band.label],
+      ["build", "占地", campus.mu + " 亩"],
+      ["mail", "省里的文", policyName(state)]
+    ];
+    return '<div class="school-ladder">' + ladderHtml(state) + '</div>' +
+      '<section class="campus-card card soft school-overview">' +
+      '<div class="school-overview__head">' + icon("reward", { size: 18 }) +
+      '<h2>学校概况</h2><span class="school-overview__link">综合实力 ›</span></div>' +
+      powerBlock(state) +
+      '<div class="school-facts">' + facts.map(function (f) {
+        return '<div class="school-fact"><span class="school-fact__ico">' + icon(f[0], { size: 16 }) +
+          '</span><div><em>' + f[1] + '</em><b>' + esc(f[2]) + '</b></div></div>';
+      }).join("") + '</div>' +
+      deptChips(state) + '</section>';
   }
 
   function schoolBuildPane(state) {
     const campus = campusOf(state);
     const pending = campus.pending ? buildingById(campus.pending) : null;
     const built = BUILDINGS.filter(function (b) { return buildingCount(state, b.id) > 0; })
-      .map(function (b) { return b.name + " " + buildingCount(state, b.id); });
-    return '<section class="card"><div class="card-head"><h2>校园建设</h2><span class="meta">' +
+      .map(function (b) { return b.name + " ×" + buildingCount(state, b.id); });
+    return '<section class="campus-card card soft school-section">' +
+      '<div class="card-head school-section__head"><h2>校园建设</h2><span class="meta">' +
       (pending ? ("在建：" + esc(pending.name)) : "暂无在建") + '</span></div>' +
       campusBuildingGrid(state) +
-      '<p class="meta">' + (built.length ? esc(built.join(" · ")) : "教学楼和宿舍各有一座。") + '</p></section>';
+      '<p class="meta school-section__note">' +
+      (built.length ? esc(built.join(" · ")) : "教学楼和宿舍各有一座。") + '</p></section>';
   }
 
   function schoolDeptsPane(state) {
-    return '<section class="card"><h2>六个系</h2><div class="depts">' +
-      state.depts.map(function (d) { return deptHtml(state, d); }).join("") + '</div></section>';
+    return '<section class="campus-card card soft school-section">' +
+      '<div class="card-head school-section__head"><h2>六个系</h2></div>' +
+      '<div class="depts school-depts">' +
+      state.depts.map(function (d, i) {
+        return '<div class="school-dept tone-' + (i % 6) + '">' + deptHtml(state, d, true) + '</div>';
+      }).join("") + '</div></section>';
   }
 
   function schoolSheet(state) {
@@ -3974,31 +4114,267 @@ function resolveHelp(state, teacher, ask) {
     return pendingBanner(state) +
       '<section class="school-hero">' +
       '<div class="school-hero-art">' + (heroArt("home") || campusArt(true)) + '</div>' +
-      '<div class="school-hero-copy"><p class="eyebrow">' + tierLabel(state) + review + '</p>' +
+      '<div class="school-hero-copy">' +
+      '<span class="school-hero__badge">' + tierLabel(state) + review + '</span>' +
       '<h2>' + esc(state.schoolName) + '</h2>' +
       '<p class="meta">第 ' + state.year + ' 年 · ' + seasonName(state) +
       (state.lastJobs ? ' · 去年就业：' + esc(state.lastJobs) : '') + '</p></div></section>' +
-      schoolTabs() + body;
+      schoolTabs() +
+      '<div class="school-panel">' + body + '</div>';
   }
 
   function peopleSheet(state) {
-    const canHire = !state.scene && state.actionsLeft > 0 && state.funds >= 14;
-    const total = state.teachers ? state.teachers.length : 0;
-    const chairs = state.teachers ? state.teachers.filter(function (t) { return isChair(state, t); }).length : 0;
+    if (peopleDetailId) {
+      const detail = teacherDetailSheet(state, peopleDetailId);
+      if (detail) return pendingBanner(state) + detail;
+      peopleDetailId = null;
+    }
     return pendingBanner(state) +
-      '<div class="people-head">' +
-      '<div class="people-stats"><div><b>' + total + '</b><span>在职教师</span></div>' +
-      '<div><b>' + chairs + '</b><span>带头人</span></div>' +
-      '<div><b>' + DEPTS.length + '</b><span>六个系</span></div></div>' +
-      '<button class="primary slim" data-act="action" data-arg="recruit"' + (canHire ? "" : " disabled") + '>引进人才<em>' + wan(14) + '</em></button>' +
-      '</div>' +
-      rankFilters() +
-      '<section class="card people">' + facultyHtml(state) + '</section>';
+      peopleSchoolBar(state) +
+      '<div class="people-panel">' +
+      peoplePaneTabs() +
+      peoplePaneBody(state) +
+      '</div>';
+  }
+
+  function peopleSchoolBar(state) {
+    return '<section class="people-head">' +
+      '<div class="people-head__sky" aria-hidden="true">' + (heroArt("home") || campusArt(true)) + '</div>' +
+      '<div class="people-head__top">' +
+      '<div class="people-head__identity">' +
+      principalAvatarChip() +
+      '<div class="people-head__copy"><b>' + esc(state.schoolName) + '</b>' +
+      '<small>第 ' + state.year + ' 年 · ' + seasonName(state) + '学期 · ' + tierLabel(state) + '</small>' +
+      '<p class="people-head__motto">优秀教师是学校发展的基石</p></div></div>' +
+      peopleResourceChips(state) +
+      '</div></section>';
+  }
+
+  function peoplePaneTabs() {
+    const panes = [
+      ["overview", "教师", "teachers"],
+      ["hire", "招聘", "search"],
+      ["train", "培养", "education"],
+      ["assess", "考核", "assess"]
+    ];
+    return '<div class="people-icon-tabs people-pane-tabs" role="tablist">' + panes.map(function (p) {
+      const on = peoplePane === p[0];
+      return '<button type="button" role="tab" class="people-icon-tab' + (on ? " is-on on" : "") +
+        '" data-act="people-pane" data-arg="' + p[0] + '"' + (on ? ' aria-selected="true"' : "") + '>' +
+        '<span class="people-icon-tab__ico">' + icon(p[2], { size: 22 }) + '</span><span>' + p[1] + '</span></button>';
+    }).join("") + '</div>';
+  }
+
+  function peoplePaneBody(state) {
+    if (peoplePane === "hire") return peopleHirePane(state);
+    if (peoplePane === "train") return peopleTrainPane(state);
+    if (peoplePane === "assess") return peopleAssessPane(state);
+    return peopleOverviewPane(state);
+  }
+
+  function peopleTeamMetrics(state) {
+    const list = state.teachers || [];
+    const total = list.length;
+    const chairs = list.filter(function (t) { return isChair(state, t); }).length;
+    const duals = list.filter(isDual).length;
+    const stars = list.filter(function (t) { return (t.talent || 0) >= 70; }).length;
+    const senior = list.filter(function (t) { return (t.rank || 0) >= 2; }).length;
+    const phd = list.filter(function (t) { return t.degree === "博士"; }).length;
+    const avgTalent = total ? Math.round(list.reduce(function (s, t) { return s + (t.talent || 0); }, 0) / total) : 0;
+    const avgLoyalty = total ? Math.round(list.reduce(function (s, t) { return s + (t.loyalty || 0); }, 0) / total) : 0;
+    const leverage = list.filter(function (t) { return t.leverage; }).length;
+    const weak = list.filter(function (t) { return (t.talent || 0) < 45; }).length;
+    const ranks = [0, 0, 0, 0];
+    list.forEach(function (t) { ranks[t.rank] = (ranks[t.rank] || 0) + 1; });
+    return {
+      total: total,
+      chairs: chairs,
+      duals: duals,
+      stars: stars,
+      senior: senior,
+      phd: phd,
+      avgTalent: avgTalent,
+      avgLoyalty: avgLoyalty,
+      leverage: leverage,
+      weak: weak,
+      ranks: ranks
+    };
+  }
+
+  function peopleDonut(m) {
+    const colors = ["#f5c9d0", "#f2ae65", "#80c6a5", "#6398df"];
+    const r = 34;
+    const c = 2 * Math.PI * r;
+    let offset = 0;
+    const segs = [];
+    for (let i = 3; i >= 0; i--) {
+      const n = m.ranks[i] || 0;
+      const len = m.total ? (n / m.total) * c : 0;
+      segs.push('<circle class="people-donut__seg" cx="48" cy="48" r="' + r +
+        '" fill="none" stroke="' + colors[i] + '" stroke-width="12" stroke-dasharray="' +
+        len.toFixed(2) + " " + c.toFixed(2) + '" stroke-dashoffset="' + (-offset).toFixed(2) +
+        '" transform="rotate(-90 48 48)"/>');
+      offset += len;
+    }
+    return '<div class="people-donut">' +
+      '<svg viewBox="0 0 96 96" aria-hidden="true">' + segs.join("") +
+      '<circle cx="48" cy="48" r="24" fill="#fffdf8"/></svg>' +
+      '<div class="people-donut__center"><span>总人数</span><b>' + m.total + '</b></div></div>';
+  }
+
+  function peopleStatsCard(state) {
+    const m = peopleTeamMetrics(state);
+    const cells = [
+      [icon("teachers", { size: 18 }), "专任教师", m.total + " 人", "tone-blue"],
+      [icon("education", { size: 18 }), "高级职称", m.senior + " 人", "tone-sky"],
+      [icon("education", { size: 18 }), "博士学历", m.phd + " 人", "tone-warm"],
+      [icon("star", { tone: "gold", size: 18 }), "平均忠诚", String(m.avgLoyalty), "tone-pink"]
+    ];
+    return '<section class="campus-card people-stats-card">' +
+      '<div class="campus-card__head"><h2>教师总览</h2>' +
+      '<button type="button" class="people-linkish" data-act="filter-toggle">共 ' + m.total + ' 人 ' +
+      icon("go", { size: 16 }) + "</button></div>" +
+      '<div class="people-stats-grid people-stats-grid--ref">' + cells.map(function (cell) {
+        return '<div class="people-mini-stat ' + cell[3] + '"><span class="people-mini-stat__ico">' + cell[0] +
+          '</span><em>' + cell[1] + '</em><b>' + cell[2] + '</b></div>';
+      }).join("") + '</div></section>';
+  }
+
+  function peopleStructureCard(state) {
+    const m = peopleTeamMetrics(state);
+    const order = [3, 2, 1, 0];
+    const colors = ["#f5c9d0", "#f2ae65", "#80c6a5", "#6398df"];
+    const legend = '<ul class="people-rank-legend">' + order.map(function (i) {
+      const n = m.ranks[i] || 0;
+      const pct = m.total ? ((n / m.total) * 100).toFixed(1) : "0.0";
+      return '<li><i style="background:' + colors[i] + '"></i><b>' + RANKS[i] + '</b>' +
+        '<span>' + n + ' 人</span><em>' + pct + '%</em></li>';
+    }).join("") + '</ul>';
+    return '<section class="campus-card people-structure-card">' +
+      '<div class="campus-card__head"><h2>教师队伍结构</h2><span class="meta">职称占比</span></div>' +
+      '<div class="people-structure-body">' +
+      peopleDonut(m) +
+      legend +
+      '<div class="people-structure-art">' + (heroArt("home") || campusArt(true)) + '</div>' +
+      '</div></section>';
+  }
+
+  function peopleRosterCard(state) {
+    const showFilters = peopleFilterOpen || peopleFilter !== "all";
+    return '<section class="campus-card people people-list">' +
+      '<div class="campus-card__head"><h2>教师列表</h2>' +
+      '<button type="button" class="people-filter-btn" data-act="filter-toggle">' + icon("filter", { size: 16 }) +
+      " 筛选</button></div>" +
+      (showFilters ? rankFilters() : "") +
+      facultyHtml(state) + "</section>";
+  }
+
+  function peopleOverviewPane(state) {
+    return peopleStatsCard(state) +
+      peopleStructureCard(state) +
+      peopleRosterCard(state);
+  }
+
+  function peopleHirePane(state) {
+    const canHire = !state.scene && state.actionsLeft > 0 && state.funds >= 14;
+    const hireBtn = UI
+      ? UI.button({
+        variant: "primary",
+        label: "开始招聘",
+        cost: wan(14),
+        disabled: !canHire,
+        attrs: { "data-act": "action", "data-arg": "recruit" }
+      })
+      : '<button class="primary" data-act="action" data-arg="recruit"' + (canHire ? "" : " disabled") + '>开始招聘<em>' + wan(14) + '</em></button>';
+    return '<section class="campus-card campus-card--soft people-hire-pane">' +
+      '<div class="campus-card__head"><h2>人才招聘</h2><span class="meta">现有规则</span></div>' +
+      '<p class="lede">' + esc(recruitOddsLine(state.tier)) + '</p>' +
+      '<p class="meta">花费 ' + wan(14) + '，占用本季一次行动。先选系，再引进。出身和擅长会拉动对应指标；贪的人可能带来把柄风险。</p>' +
+      hireBtn + '</section>' +
+      peopleRosterCard(state);
+  }
+
+  function peopleTrainPane(state) {
+    const teachSpec = actionsCatalog(state).find(function (a) { return a.id === "teach"; });
+    const canTeach = teachSpec && !(teachSpec.disabled || (teachSpec.once && state.used.teach) || state.funds < teachSpec.cost || state.actionsLeft <= 0);
+    const focus = teachFocus(state);
+    const weak = (state.teachers || []).slice().sort(function (a, b) { return (a.talent || 0) - (b.talent || 0); }).slice(0, 4);
+    const chairs = (state.teachers || []).filter(function (t) { return isChair(state, t); });
+    const list = weak.length
+      ? '<div class="people-train-list">' + weak.map(function (t) {
+        const meta = DEPTS.find(function (x) { return x.id === t.dept; });
+        return '<div class="people-train-row"><b>' + esc(t.name) + '</b><span>' + (meta ? meta.name : "") +
+          ' · 才华 ' + t.talent + ' · ' + RANKS[t.rank] + '</span></div>';
+      }).join("") + '</div>'
+      : '<p class="meta">名册还是空的。</p>';
+    const chairLine = chairs.length
+      ? chairs.map(function (t) { return esc(t.name); }).join("、")
+      : "还没有学科带头人";
+    return '<section class="campus-card people-train-pane">' +
+      '<div class="campus-card__head"><h2>教师培养</h2><span class="meta">沿用教学评估</span></div>' +
+      '<p class="lede">没有单独的一对一培养指令。现有培养操作是「教学评估」：花费 ' + wan(6) + '，一年一次，补' +
+      esc(focus.label || "教学") + '。</p>' +
+      '<p class="meta">职称晋升仍在双年评审里处理，不在这里另开规则。</p>' +
+      (UI
+        ? UI.button({ variant: "primary", label: "去做教学评估", cost: wan(6), disabled: !canTeach, attrs: { "data-act": "action", "data-arg": "teach" } })
+        : '<button class="primary" data-act="action" data-arg="teach"' + (canTeach ? "" : " disabled") + '>去做教学评估<em>' + wan(6) + '</em></button>') +
+      '</section>' +
+      '<section class="campus-card"><div class="campus-card__head"><h2>优先关注</h2><span class="meta">才华偏低</span></div>' + list +
+      '<p class="meta">当前带头人：' + chairLine + '</p></section>' +
+      peopleRosterCard(state);
+  }
+
+  function peopleAssessPane(state) {
+    const m = peopleTeamMetrics(state);
+    const list = state.teachers || [];
+    const bands = [
+      ["成果够", list.filter(function (t) { return (t.talent || 0) >= 62; }).length],
+      ["成果勉强", list.filter(function (t) { return (t.talent || 0) >= 45 && (t.talent || 0) < 62; }).length],
+      ["成果不够", list.filter(function (t) { return (t.talent || 0) < 45; }).length]
+    ];
+    const risk = list.filter(function (t) { return t.leverage || t.skimming || (t.loyalty || 0) <= 40; });
+    const bandHtml = '<div class="people-assess-bands">' + bands.map(function (b) {
+      return '<div class="people-assess-band"><b>' + b[1] + '</b><span>' + b[0] + '</span></div>';
+    }).join("") + '</div>';
+    const riskHtml = risk.length
+      ? '<ul class="log people-assess-log">' + risk.map(function (t) {
+        const meta = DEPTS.find(function (x) { return x.id === t.dept; });
+        return '<li><button type="button" class="people-assess-link" data-act="teacher" data-arg="' + esc(t.id) + '">' +
+          esc(t.name) + '</button> · ' + (meta ? meta.name : "") + ' · ' + esc(dossier(t)) +
+          ' · 忠诚 ' + t.loyalty + '</li>';
+      }).join("") + '</ul>'
+      : '<p class="meta">这一档没有明显考核风险。</p>';
+    return '<section class="campus-card people-assess-pane">' +
+      '<div class="campus-card__head"><h2>教师考核</h2><span class="meta">按现有档案</span></div>' +
+      '<div class="people-growth">' +
+      '<div><span>平均才华</span><b>' + m.avgTalent + '</b></div>' +
+      '<div><span>平均忠诚</span><b>' + m.avgLoyalty + '</b></div>' +
+      '<div><span>骨干</span><b>' + m.stars + '</b></div>' +
+      '<div><span>风险人数</span><b>' + risk.length + '</b></div></div>' +
+      bandHtml +
+      '<p class="meta">档位沿用评审里的成果标准（才华 62 / 45）。</p></section>' +
+      '<section class="campus-card"><div class="campus-card__head"><h2>需要盯住的人</h2><span class="meta">把柄 / 账洞 / 低忠诚</span></div>' +
+      riskHtml + '</section>' +
+      peopleRosterCard(state);
+  }
+
+  function filteredTeacherCount(state) {
+    if (!state.teachers) return 0;
+    return state.teachers.filter(function (t) {
+      return peopleFilter === "all" || String(t.rank) === peopleFilter;
+    }).length;
   }
 
   function rankFilters() {
     const ranks = [["all", "全部"], ["3", "教授"], ["2", "副教授"], ["1", "讲师"], ["0", "助教"]];
-    return '<div class="filters">' + ranks.map(function (r) {
+    if (UI) {
+      return UI.tabs({
+        act: "filter",
+        active: peopleFilter,
+        items: ranks.map(function (r) { return { id: r[0], label: r[1] }; })
+      }).replace('class="campus-tabs seg-tabs"', 'class="campus-tabs seg-tabs people-filters"');
+    }
+    return '<div class="filters people-filters">' + ranks.map(function (r) {
       return '<button type="button" data-act="filter" data-arg="' + r[0] + '"' +
         (peopleFilter === r[0] ? ' class="on"' : '') + '>' + r[1] + '</button>';
     }).join("") + '</div>';
@@ -4033,8 +4409,119 @@ function resolveHelp(state, teacher, ask) {
   function applyButton(state, label, cost) {
     const used = !!state.used.apply;
     const blocked = state.applyBlockYear === state.year;
-    return '<button class="accent" data-act="action" data-arg="apply"' + (used || blocked ? " disabled" : "") + '>' +
+    if (UI) {
+      return UI.button({
+        variant: "accent",
+        label: label,
+        cost: cost ? wan(cost) : "",
+        disabled: used || blocked,
+        className: "apply-cta",
+        attrs: { "data-act": "action", "data-arg": "apply" }
+      });
+    }
+    return '<button class="accent apply-cta" data-act="action" data-arg="apply"' + (used || blocked ? " disabled" : "") + '>' +
       esc(label) + (cost ? '<em>' + wan(cost) + '</em>' : '') + '</button>';
+  }
+
+  function applyHero(eyebrow, title, meta) {
+    return '<section class="apply-hero">' +
+      '<div class="apply-hero__bg">' + (heroArt("apply") || campusArt(true)) + '</div>' +
+      '<div class="apply-hero-copy"><p class="eyebrow">' + esc(eyebrow) + '</p><h2>' + esc(title) + '</h2>' +
+      '<p class="meta">' + esc(meta) + '</p></div></section>';
+  }
+
+  function applyPathCard(title, tone, items, costHint) {
+    const ok = items.filter(function (it) { return it.ok; }).length;
+    const total = items.length;
+    const pct = total ? Math.round((ok / total) * 100) : 0;
+    return '<article class="apply-path apply-path--' + tone + '">' +
+      '<span class="apply-path__ico">' + icon("education", { size: 28 }) + '</span>' +
+      '<h3>' + esc(title) + '</h3>' +
+      '<b class="apply-path__count">' + ok + ' <em>/ ' + total + '</em></b>' +
+      '<div class="apply-path__bar"><i style="width:' + pct + '%"></i></div>' +
+      '<p class="apply-path__hint">' + esc(costHint) + '</p>' +
+      '<button type="button" class="apply-path__go" data-act="apply-filter" data-arg="open">条件准备 ›</button>' +
+      '</article>';
+  }
+
+  function applyCompareGroups(academicItems, vocationalItems) {
+    const defs = [
+      { id: "power", name: "综合实力", icon: "reward", re: /综合评分|报考热度|四个系|最短的系|理学|工学或计算机/ },
+      { id: "staff", name: "教学师资", icon: "teachers", re: /教学|硕博|双师/ },
+      { id: "funds", name: "资金保障", icon: "coin", re: /经费|贷款/ },
+      { id: "campus", name: "校园建设", icon: "build", re: /占地|教学楼|实验楼|图书馆|宿舍|实训楼|产教基地/ },
+      { id: "gov", name: "学校治理", icon: "shield", re: /风纪|把柄|举报/ }
+    ];
+    function pick(items, re) {
+      return items.filter(function (it) { return re.test(it.label); });
+    }
+    function statusOf(aList, vList) {
+      const aOk = aList.filter(function (it) { return it.ok; }).length;
+      const vOk = vList.filter(function (it) { return it.ok; }).length;
+      const aTotal = aList.length;
+      const vTotal = vList.length;
+      if (aTotal + vTotal === 0) return { kind: "lock", label: "未达成" };
+      if (aOk === aTotal && vOk === vTotal) return { kind: "done", label: "已达成" };
+      if (aOk === 0 && vOk === 0) return { kind: "lock", label: "未达成" };
+      const ratio = (aOk + vOk) / (aTotal + vTotal);
+      if (ratio >= 0.45) return { kind: "progress", label: "进行中" };
+      return { kind: "warn", label: "待提升" };
+    }
+    return defs.map(function (def) {
+      const aList = pick(academicItems, def.re);
+      const vList = pick(vocationalItems, def.re);
+      const aOk = aList.filter(function (it) { return it.ok; }).length;
+      const vOk = vList.filter(function (it) { return it.ok; }).length;
+      return {
+        id: def.id,
+        name: def.name,
+        icon: def.icon,
+        aList: aList,
+        vList: vList,
+        aShown: aOk + "/" + aList.length,
+        vShown: vOk + "/" + vList.length,
+        status: statusOf(aList, vList)
+      };
+    }).filter(function (g) { return g.aList.length || g.vList.length; });
+  }
+
+  function applyCompareSection(academic, vocational) {
+    const groups = applyCompareGroups(academic.items, vocational.items);
+    const filtered = groups.filter(function (g) {
+      if (applyGateFilter === "done") return g.status.kind === "done";
+      if (applyGateFilter === "open") return g.status.kind !== "done";
+      return true;
+    });
+    const filters = [["all", "全部"], ["open", "未达成"], ["done", "已达成"]];
+    return '<section class="campus-card card soft apply-compare">' +
+      '<div class="apply-compare__head">' + icon("star", { tone: "gold", size: 18 }) +
+      '<h2>申报条件对比</h2></div>' +
+      '<div class="apply-compare__filters" role="tablist">' + filters.map(function (f) {
+        const on = applyGateFilter === f[0];
+        return '<button type="button" role="tab" class="' + (on ? "is-on on" : "") +
+          '" data-act="apply-filter" data-arg="' + f[0] + '"' + (on ? ' aria-selected="true"' : "") + '>' +
+          f[1] + '</button>';
+      }).join("") + '</div>' +
+      '<div class="apply-compare__list">' + filtered.map(function (g) {
+        const open = applyExpandId === g.id;
+        return '<article class="apply-row' + (open ? " is-open" : "") + '">' +
+          '<button type="button" class="apply-row__main" data-act="apply-expand" data-arg="' + g.id + '">' +
+          '<span class="apply-row__ico">' + icon(g.icon, { size: 22 }) + '</span>' +
+          '<div class="apply-row__copy"><b>' + esc(g.name) + '</b>' +
+          '<small>普通 ' + g.aShown + ' · 职业 ' + g.vShown + '</small></div>' +
+          '<span class="apply-row__tag is-' + g.status.kind + '">' + g.status.label + '</span>' +
+          '<span class="apply-row__chev" aria-hidden="true">' + (open ? "˄" : "˅") + '</span></button>' +
+          (open
+            ? '<div class="apply-row__detail">' +
+              '<div class="apply-row__col"><em>普通本科</em><ul>' + g.aList.map(function (it) {
+                return '<li class="' + (it.ok ? "ok" : "no") + '">' + esc(it.label) + '<span>' + esc(it.shown) + '</span></li>';
+              }).join("") + '</ul></div>' +
+              '<div class="apply-row__col"><em>职业本科</em><ul>' + g.vList.map(function (it) {
+                return '<li class="' + (it.ok ? "ok" : "no") + '">' + esc(it.label) + '<span>' + esc(it.shown) + '</span></li>';
+              }).join("") + '</ul></div></div>'
+            : "") +
+          '</article>';
+      }).join("") + '</div></section>';
   }
 
   function applySheet(state) {
@@ -4042,11 +4529,12 @@ function resolveHelp(state, teacher, ask) {
       const academic = pathGates(state, "academic");
       const vocational = pathGates(state, "vocational");
       return pendingBanner(state) +
-        '<section class="apply-hero"><div class="apply-hero-copy"><p class="eyebrow">当前可申报 · 2 项</p><h2>升本项目</h2>' +
-        '<p class="meta">普通本科可继续冲 212；职业本科升完封顶。</p></div>' +
-        (heroArt("apply") || campusArt(true)) + '</section>' +
-        projectCard("普通本科", "经费 " + wan(academic.cost) + "。过了可以申报 212。", academic.items) +
-        projectCard("职业本科", "经费 " + wan(vocational.cost) + "。过了不能再申报 212。", vocational.items) +
+        applyHero("当前可申报 · 2项", "升本项目", "提升办学层次，建设更高水平大学！") +
+        '<div class="apply-paths">' +
+        applyPathCard("普通本科", "blue", academic.items, "经费 " + wan(academic.cost) + " · 可续冲 212") +
+        applyPathCard("职业本科", "orange", vocational.items, "经费 " + wan(vocational.cost) + " · 升完封顶") +
+        '</div>' +
+        applyCompareSection(academic, vocational) +
         applyButton(state, "选择升本路线", 0);
     }
     if (state.track === "vocational") {
@@ -4059,17 +4547,14 @@ function resolveHelp(state, teacher, ask) {
         return projectCard(g.title, "经费 " + wan(g.cost) + "。职业本科办满三年才能递。", g.items);
       }).join("");
       return pendingBanner(state) +
-        '<section class="apply-hero"><div class="apply-hero-copy"><p class="eyebrow">当前可申报</p><h2>专业硕士点</h2>' +
-        '<p class="meta">职业本科封顶路径。最多两个点。</p></div>' +
-        (heroArt("apply") || campusArt(true)) + '</section>' + cards +
+        applyHero("当前可申报", "专业硕士点", "职业本科封顶路径。最多两个点。") +
+        cards +
         (full ? '<p class="ready">两个点都在。</p>' : applyButton(state, "申报专业硕士点", 0));
     }
     const g = gates(state);
     if (!g) {
       return pendingBanner(state) +
-        '<section class="apply-hero"><div class="apply-hero-copy"><p class="eyebrow">申报中心</p><h2>D9</h2>' +
-        '<p class="meta">已经进了 D9。剩下的是榜单，还有把柄会不会炸。</p></div>' +
-        (heroArt("apply") || campusArt(true)) + '</section>';
+        applyHero("申报中心", "D9", "已经进了 D9。剩下的是榜单，还有把柄会不会炸。");
     }
     const prize = tierPrize(state.tier + 1);
     const ready = g.items.every(function (it) { return it.ok; });
@@ -4082,11 +4567,9 @@ function resolveHelp(state, teacher, ask) {
     if (short) tip = '<p class="ready gap">经费不够，现在递不出去。</p>';
     if (used) tip = '<p class="ready gap">今年已经申报过了。</p>';
     return pendingBanner(state) +
-      '<section class="apply-hero"><div class="apply-hero-copy"><p class="eyebrow">当前可申报</p><h2>' + esc(g.title) + '</h2>' +
-      '<p class="meta">过了：' + esc(prize.lines.join("，")) + '。省里按这一档送评。</p></div>' +
-      (heroArt("apply") || campusArt(true)) + '</section>' +
+      applyHero("当前可申报", g.title, "过了：" + prize.lines.join("，") + "。省里按这一档送评。") +
       projectCard(g.title, "经费 " + wan(g.cost) + "。把柄不动。", g.items,
-        tip + '<button class="accent" data-act="action" data-arg="apply"' + (disabled ? " disabled" : "") + '>申请' + esc(g.title) + '<em>' + wan(g.cost) + '</em></button>');
+        tip + '<button class="accent apply-cta" data-act="action" data-arg="apply"' + (disabled ? " disabled" : "") + '>申请' + esc(g.title) + '<em>' + wan(g.cost) + '</em></button>');
   }
 
   function ladderHtml(state) {
@@ -4110,8 +4593,14 @@ function resolveHelp(state, teacher, ask) {
 
   function deptHtml(state, d, slim) {
     const meta = DEPTS.find((x) => x.id === d.id);
+    const tone = deptTone(d.strength);
+    if (UI) {
+      return '<div class="dept">' +
+        UI.progress({ label: meta.name, shown: String(d.strength), pct: d.strength, toneClass: tone }) +
+        (slim ? "" : '<div class="hint">' + meta.role + "</div>") + "</div>";
+    }
     return '<div class="dept"><div class="row"><b>' + meta.name + '</b><span>' + d.strength + '</span></div>' +
-      '<div class="track"><i class="' + deptTone(d.strength) + '" style="width:' + d.strength + '%"></i></div>' +
+      '<div class="track"><i class="' + tone + '" style="width:' + d.strength + '%"></i></div>' +
       (slim ? '' : '<div class="hint">' + meta.role + '</div>') + '</div>';
   }
 
@@ -4125,6 +4614,15 @@ function resolveHelp(state, teacher, ask) {
     } else if (it.ok) tone = "ok";
     else if (ratio >= 0.8) tone = "near";
     else if (ratio < 0.45) tone = "bad";
+    if (UI) {
+      return '<li class="req">' +
+        UI.progress({
+          label: it.label,
+          shown: it.shown + (it.ok ? " ✓" : ""),
+          pct: pct,
+          toneClass: tone
+        }) + "</li>";
+    }
     return '<li class="req"><div class="row"><b>' + it.label + '</b><span class="' + (it.ok ? "ok" : "no") + '">' + it.shown + '</span>' +
       (it.ok ? '<i class="tick">✓</i>' : '') + '</div>' +
       '<div class="track"><i class="' + tone + '" style="width:' + pct.toFixed(1) + '%"></i></div></li>';
@@ -4140,24 +4638,89 @@ function resolveHelp(state, teacher, ask) {
     return teacher.school + " · " + teacher.degree + " · 擅长" + skillById(teacher.skill).name;
   }
 
-  function teacherAvatar(t) {
+  function teacherAvatarInner(t) {
     const src = Assets.teacherSrc ? Assets.teacherSrc(t) : null;
-    if (src) {
-      return '<span class="avatar sprite">' + artImg(src, "art-character", t.name) + "</span>";
+    if (src) return artImg(src, "art-character", t.name);
+    return esc(t.name.slice(0, 1));
+  }
+
+  function teacherAvatar(t) {
+    return '<span class="avatar sprite">' + teacherAvatarInner(t) + "</span>";
+  }
+
+  function teacherBadges(state, t) {
+    return '<span class="tag rank campus-badge">' + RANKS[t.rank] + '</span>' +
+      (t.leverage ? '<span class="tag warn campus-badge campus-badge--warn">把柄</span>' : '') +
+      (isChair(state, t) ? '<span class="tag campus-badge">学科带头人</span>' : '') +
+      (t.skimming ? '<span class="tag warn campus-badge campus-badge--warn">账上有洞</span>' : '') +
+      (isDual(t) ? '<span class="tag campus-badge campus-badge--gold">双师</span>' : '');
+  }
+
+  function teacherStatBars(t) {
+    if (UI) {
+      return '<div class="teacher-bars">' +
+        UI.progress({ label: "才华", shown: String(t.talent), pct: t.talent, toneClass: t.talent >= 70 ? "ok" : t.talent < 40 ? "near" : "" }) +
+        UI.progress({ label: "忠诚", shown: String(t.loyalty), pct: t.loyalty, toneClass: t.loyalty >= 70 ? "ok" : t.loyalty < 40 ? "near" : "" }) +
+        '</div>';
     }
-    return '<span class="avatar">' + esc(t.name.slice(0, 1)) + "</span>";
+    return '<div class="person-scores"><span><em>才华</em><b>' + t.talent + '</b></span><span><em>忠诚</em><b>' + t.loyalty + '</b></span></div>';
   }
 
   function teacherCard(state, meta, t) {
-    return '<div class="person">' + teacherAvatar(t) + '<div class="who"><div class="nameline"><b>' + esc(t.name) + '</b>' +
-      '<span class="tag rank">' + RANKS[t.rank] + '</span>' +
-      (t.leverage ? '<span class="tag warn">把柄</span>' : '') +
-      (isChair(state, t) ? '<span class="tag">学科带头人</span>' : '') +
-      (t.skimming ? '<span class="tag warn">账上有洞</span>' : '') +
-      (isDual(t) ? '<span class="tag">双师</span>' : '') +
-      '</div><div class="meta">' + meta.name + ' · ' + esc(backgroundText(t)) + '</div>' +
-      '<div class="person-scores"><span><em>才华</em><b>' + t.talent + '</b></span><span><em>忠诚</em><b>' + t.loyalty + '</b></span></div>' +
-      '</div></div>';
+    const badges = teacherBadges(state, t);
+    const metaLine = meta.name + " · 才华 " + t.talent + " · 忠诚 " + t.loyalty;
+    const trail = '<span class="teacher-status">在职</span><span class="campus-teacher__go" aria-hidden="true">' +
+      icon("go", { size: 16 }) + "</span>";
+    if (UI) {
+      return UI.teacherCard({
+        name: t.name,
+        avatarHtml: teacherAvatarInner(t),
+        badgesHtml: badges,
+        meta: metaLine,
+        trailHtml: trail,
+        clickable: true,
+        attrs: { "data-act": "teacher", "data-arg": t.id }
+      });
+    }
+    return '<button type="button" class="person campus-teacher is-clickable" data-act="teacher" data-arg="' + esc(t.id) + '">' +
+      teacherAvatar(t) +
+      '<div class="who campus-teacher__who"><div class="nameline campus-teacher__name"><b>' + esc(t.name) + '</b>' +
+      badges +
+      '</div><div class="meta campus-teacher__meta">' + esc(metaLine) + '</div>' +
+      '</div>' + trail + '</button>';
+  }
+
+  function findTeacher(state, id) {
+    return (state.teachers || []).find(function (t) { return t.id === id; }) || null;
+  }
+
+  function teacherDetailSheet(state, id) {
+    const t = findTeacher(state, id);
+    if (!t) return "";
+    const meta = DEPTS.find(function (x) { return x.id === t.dept; }) || { name: "—" };
+    const skill = skillById(t.skill);
+    const bars = '<div class="teacher-detail-bars">' +
+      (UI
+        ? UI.progress({ label: "才华", shown: String(t.talent), pct: t.talent, toneClass: t.talent >= 70 ? "ok" : "" }) +
+          UI.progress({ label: "忠诚", shown: String(t.loyalty), pct: t.loyalty, toneClass: t.loyalty >= 70 ? "ok" : "" })
+        : teacherStatBars(t)) +
+      '</div>';
+    const facts = '<div class="teacher-facts">' +
+      '<div><span>所属系</span><b>' + esc(meta.name) + '</b></div>' +
+      '<div><span>职称</span><b>' + RANKS[t.rank] + '</b></div>' +
+      '<div><span>学历出身</span><b>' + esc(t.school || "本校") + ' · ' + esc(t.degree || "本科") + '</b></div>' +
+      '<div><span>擅长</span><b>' + esc(skill ? skill.name : "科研") + '</b></div>' +
+      '</div>';
+    return '<section class="campus-card teacher-detail">' +
+      '<button type="button" class="teacher-detail-back" data-act="teacher-back">‹ 返回名册</button>' +
+      '<div class="teacher-detail-hero">' +
+      '<span class="avatar teacher-detail-avatar">' + teacherAvatarInner(t) + '</span>' +
+      '<div><p class="eyebrow">' + esc(meta.name) + ' · ' + RANKS[t.rank] + '</p>' +
+      '<h2>' + esc(t.name) + '</h2>' +
+      '<div class="teacher-detail-badges">' + teacherBadges(state, t) + '</div></div></div>' +
+      facts + bars +
+      '<p class="meta teacher-detail-note">出身与擅长会影响学校；把柄和账上的洞会在评审与巡察里露出来。培养走教学评估，晋升在双年评审里处理。</p>' +
+      '</section>';
   }
 
   function facultyHtml(state) {
@@ -4168,17 +4731,17 @@ function resolveHelp(state, teacher, ask) {
       });
       if (!people.length) {
         if (peopleFilter === "all") {
-          cards.push('<div class="person empty"><span class="avatar sprite">' +
+          cards.push('<div class="person empty campus-teacher is-empty"><span class="avatar sprite">' +
             (Assets.characters && Assets.characters["staff-female"]
               ? artImg(Assets.characters["staff-female"], "art-character", "空缺")
-              : icon("recruit")) +
+              : icon("teachers", { size: 18 })) +
             '</span><div><b>' + meta.name + '</b><div class="meta">没有带头人，年底这个系会往下掉。</div></div></div>');
         }
         return;
       }
       people.forEach(function (t) { cards.push(teacherCard(state, meta, t)); });
     });
-    if (!cards.length) return '<p class="meta">这一档现在没有人。</p>';
+    if (!cards.length) return '<p class="meta people-empty">这一档现在没有人。</p>';
     return cards.join("");
   }
 
@@ -4199,11 +4762,15 @@ function resolveHelp(state, teacher, ask) {
       (noting ? notes : changes).push(line);
     });
     const pct = Math.max(0, Math.min(100, state.score));
-    return '<section class="card summary"><div class="sumtop"><div><p class="eyebrow">年度结算</p><h1>' + esc(state.scene.title) + '</h1>' +
+    return '<section class="card campus-card campus-card--warm summary"><div class="sumtop"><div><p class="eyebrow">年度结算</p><h1>' + esc(state.scene.title) + '</h1>' +
       '<p class="lede">' + esc(state.scene.body) + '</p></div>' +
       '<div class="ring" style="--p:' + pct + '"><span><b>' + state.score + '</b><em>综合评分</em></span></div></div>' +
       '<ul class="deltas">' + changes.map(deltaHtml).join("") + '</ul></section>' +
-      (notes.length ? '<section class="card"><h2>原因</h2><ul class="log">' + notes.map(function (line) { return '<li>' + esc(line) + '</li>'; }).join("") + '</ul></section>' : '') +
+      (notes.length
+        ? (UI
+          ? UI.card({ title: "原因", body: '<ul class="log">' + notes.map(function (line) { return '<li>' + esc(line) + '</li>'; }).join("") + '</ul>' })
+          : '<section class="card"><h2>原因</h2><ul class="log">' + notes.map(function (line) { return '<li>' + esc(line) + '</li>'; }).join("") + '</ul></section>')
+        : '') +
       decisionButtons(state);
   }
 
@@ -4217,10 +4784,18 @@ function resolveHelp(state, teacher, ask) {
   function decisionButtons(state) {
     if (state.scene) {
       const only = state.scene.choices.length === 1;
-      return '<div class="choices event-choices">' + state.scene.choices.map((c) =>
-        '<button class="' + (only ? "primary" : "choice-card") + '" data-act="choice" data-arg="' + esc(c.id) + '"><b>' + esc(c.label) + '</b>' +
-        (c.detail ? '<small>' + esc(c.detail) + '</small>' : '') + '</button>'
-      ).join("") + '</div>';
+      return '<div class="choices event-choices">' + state.scene.choices.map((c) => {
+        if (UI && only) {
+          return UI.button({
+            variant: "primary",
+            html: "<b>" + esc(c.label) + "</b>" + (c.detail ? "<small>" + esc(c.detail) + "</small>" : ""),
+            attrs: { "data-act": "choice", "data-arg": c.id }
+          });
+        }
+        return '<button class="' + (only ? "primary campus-btn campus-btn--primary" : "choice-card campus-btn campus-btn--secondary") +
+          '" data-act="choice" data-arg="' + esc(c.id) + '"><b>' + esc(c.label) + '</b>' +
+          (c.detail ? '<small>' + esc(c.detail) + '</small>' : '') + '</button>';
+      }).join("") + '</div>';
     }
     return "";
   }
@@ -4251,7 +4826,9 @@ function resolveHelp(state, teacher, ask) {
       '<div class="rowcard"><span>收过的好处 <b>' + state.bribes + '</b></span><span class="side">被举报 ' + state.reports + ' 次</span></div>' +
       '<section class="card"><h2>停在这一档</h2><p class="lede">' + esc(e.stamp) + '。最强的是' + deptName(best.id) + ' ' + best.strength + '，最短的是' + deptName(worst.id) + ' ' + worst.strength + '。</p>' +
       '<p class="fine">数字按离任那天固定。这一届不能再改。</p></section>' +
-      '<button class="primary" data-act="restart">再当一届</button></div>';
+      (UI
+        ? UI.button({ variant: "primary", label: "再当一届", attrs: { "data-act": "restart" } })
+        : '<button class="primary" data-act="restart">再当一届</button>') + '</div>';
   }
 
   function statLine(k, v) { return '<div><span>' + k + '</span><b>' + v + '</b></div>'; }
@@ -4326,17 +4903,70 @@ function resolveHelp(state, teacher, ask) {
       }
       if (act === "tab") {
         screen = btn.dataset.arg || "do";
+        if (screen !== "people") {
+          peopleDetailId = null;
+        } else if (!peoplePane) {
+          peoplePane = "overview";
+        }
         draw();
         window.scrollTo(0, 0);
         return;
       }
+      if (act === "people-pane") {
+        peoplePane = btn.dataset.arg || "overview";
+        peopleDetailId = null;
+        screen = "people";
+        draw();
+        window.scrollTo(0, 0);
+        return;
+      }
+      if (act === "filter-toggle") {
+        peopleFilterOpen = !peopleFilterOpen;
+        draw();
+        return;
+      }
       if (act === "filter") {
         peopleFilter = btn.dataset.arg || "all";
+        peopleFilterOpen = true;
+        peopleDetailId = null;
         draw();
+        return;
+      }
+      if (act === "teacher") {
+        peopleDetailId = btn.dataset.arg || null;
+        screen = "people";
+        draw();
+        window.scrollTo(0, 0);
+        return;
+      }
+      if (act === "teacher-back") {
+        peopleDetailId = null;
+        screen = "people";
+        draw();
+        window.scrollTo(0, 0);
         return;
       }
       if (act === "school-pane") {
         schoolPane = btn.dataset.arg || "overview";
+        draw();
+        return;
+      }
+      if (act === "do-pane") {
+        doPane = btn.dataset.arg === "year" ? "results" : (btn.dataset.arg || "tasks");
+        screen = "do";
+        draw();
+        return;
+      }
+      if (act === "apply-filter") {
+        applyGateFilter = btn.dataset.arg || "all";
+        screen = "apply";
+        draw();
+        return;
+      }
+      if (act === "apply-expand") {
+        const id = btn.dataset.arg || "";
+        applyExpandId = applyExpandId === id ? null : id;
+        screen = "apply";
         draw();
         return;
       }

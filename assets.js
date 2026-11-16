@@ -44,17 +44,6 @@
     "teacher-male": url("characters/teacher-male.png")
   };
 
-  const atlases = {
-    icons: url("icons/01_game_icons_atlas.png"),
-    ui: url("ui/02_ui_components_atlas.png"),
-    dialogs: url("ui/07_dialogs_atlas.png"),
-    props: url("props/03_props_atlas.png"),
-    map: url("map/05_map_tiles_atlas.png"),
-    scenery: url("decorations/04_scenery_atlas.png"),
-    effects: url("effects/06_effects_atlas.png"),
-    badges: url("badges/08_achievement_badges_atlas.png")
-  };
-
   /** 游戏内建筑 id → 独立建筑 PNG */
   const buildingByGameId = {
     teach: "academic",
@@ -104,7 +93,6 @@
     url: url,
     buildings: buildings,
     characters: characters,
-    atlases: atlases,
     buildingByGameId: buildingByGameId,
     buildingSrc: buildingSrc,
     characterSrc: characterSrc,
