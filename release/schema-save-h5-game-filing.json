@@ -1,0 +1,127 @@
+{
+  "ok": true,
+  "data": {
+    "_meta": {
+      "access_tokens": [],
+      "danger": true,
+      "envelope_version": "1.0",
+      "required_scopes": [],
+      "risk": "write",
+      "scopes": []
+    },
+    "description": "接受包体版本及可选简介；著作权人按认证主体资料生成，不接受手动填写。主体与材料由业务服务预填，未提供的简介保留。快照仅执行前校验，保存后须重新查询。",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "app_id": {
+          "description": "游戏 ID",
+          "format": "int64",
+          "type": "integer"
+        },
+        "developer_id": {
+          "description": "厂商 ID",
+          "format": "int64",
+          "type": "integer"
+        },
+        "expected_snapshot": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "game_introduction": {
+          "maxLength": 100,
+          "type": "string"
+        },
+        "version_id": {
+          "format": "int64",
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "app_id",
+        "developer_id",
+        "expected_snapshot",
+        "version_id"
+      ],
+      "type": "object"
+    },
+    "name": "qualification save-h5-game-filing",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "result": {
+          "properties": {
+            "filing_id": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "filing_state": {
+              "description": "游戏备案进度；备案完成不代表游戏自身 ICP 已通过",
+              "type": "string"
+            },
+            "icp_state": {
+              "description": "游戏自身 ICP 独立进度；icp_status_not_required 表示未启用，不等于已通过或永久免办；icp_status_unspecified 表示状态未确认",
+              "type": "string"
+            },
+            "record_exists": {
+              "type": "boolean"
+            },
+            "requires_sms_verification": {
+              "description": "当前自身 ICP 是否处于短信核验阶段；不返回验证码",
+              "type": "boolean"
+            },
+            "review_state": {
+              "description": "备案资料总审核状态；不代替 filing_state 或 icp_state",
+              "type": "string"
+            },
+            "scene": {
+              "description": "备案场景：filing_scene_h5_game 为 H5 游戏备案；filing_scene_default 为普通备案",
+              "type": "string"
+            },
+            "self_icp_pre_approval_ready": {
+              "description": "自身 ICP 适用前置资料是否就绪，不代表 ICP 已通过，也不能单独作为 H5 游戏备案提审失败原因",
+              "type": "boolean"
+            },
+            "snapshot": {
+              "type": "string"
+            },
+            "version_id": {
+              "description": "当前备案记录关联的包体版本，不一定等于应用当前绑定的主包体版本",
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "accepted"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "result",
+        "status"
+      ],
+      "type": "object"
+    }
+  },
+  "meta": {
+    "catalog": {
+      "source_version": "1.0.78",
+      "digest": "sha256:da5cb96c1964292a2f4da25934058f894292b833d802c7ed5b5bd8a1558a0c62",
+      "loaded_from": "embedded"
+    }
+  },
+  "_notice": {
+    "update_check": {
+      "command": "taptap-cli update --check --json",
+      "message": "Automatic update check could not complete; run: taptap-cli update --check --json",
+      "reason": "timeout",
+      "status": "unavailable"
+    }
+  }
+}

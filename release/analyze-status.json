@@ -1,0 +1,78 @@
+﻿{
+  "ok": true,
+  "data": {
+    "result": {
+      "blockers": [
+        {
+          "code": "MISSING_REQUIRED",
+          "field_ids": [
+            "description",
+            "promotion_material_type",
+            "banner_4",
+            "screenshots"
+          ],
+          "message": "4 涓繀濉」鏈～鍐?
+        }
+      ],
+      "is_level": false,
+      "suggestions": [
+        {
+          "field_id": "developer_message",
+          "message": "璇疯ˉ鍏呭紑鍙戣€呯殑璇?
+        },
+        {
+          "field_id": "promotion_text",
+          "message": "璇疯ˉ鍏呴椤垫帹鑽愯"
+        }
+      ],
+      "warnings": [
+        {
+          "code": "QUALIFICATION_FACTS_UNCONFIRMED",
+          "field_ids": [
+            "is_internet_required",
+            "has_in_app_purchase",
+            "has_text_story_simulation",
+            "has_ai_content",
+            "has_ip_authorization"
+          ],
+          "message": "璧勮川鍒ゆ柇浜嬪疄灏氭湭纭锛屼笉鑳芥嵁姝ゅ绉版棤璧勮川缂哄彛"
+        },
+        {
+          "code": "QUALIFICATION_INCOMPLETE",
+          "field_ids": [],
+          "message": "浠嶆湁璧勮川寰呭畬鎴愶細AI 鎺ュ叆澹版槑锛堝緟琛ラ綈锛夈€侀殣绉佸悎瑙勶紙寰呰ˉ榻愶級銆傜户缁彁瀹″彲鑳借椹冲洖銆?
+        },
+        {
+          "code": "AGE_GRADE_REQUIRED",
+          "field_ids": [
+            "age_grade"
+          ],
+          "message": "娓告垙閫傞緞鍒嗙骇锛堝緟琛ラ綈锛?
+        },
+        {
+          "code": "DEFAULT_ICON",
+          "field_ids": [
+            "icon"
+          ],
+          "message": "娓告垙鍥炬爣浠嶆槸榛樿鍥炬爣锛岃涓婁紶鑷畾涔夊浘鏍囷紙鍚﹀垯鍙兘褰卞搷瀹℃牳璇勭骇锛?
+        }
+      ]
+    },
+    "status": "completed"
+  },
+  "meta": {
+    "catalog": {
+      "source_version": "1.0.78",
+      "digest": "sha256:da5cb96c1964292a2f4da25934058f894292b833d802c7ed5b5bd8a1558a0c62",
+      "loaded_from": "embedded"
+    }
+  },
+  "_notice": {
+    "update_check": {
+      "command": "taptap-cli update --check --json",
+      "message": "Automatic update check could not complete; run: taptap-cli update --check --json",
+      "reason": "timeout",
+      "status": "unavailable"
+    }
+  }
+}

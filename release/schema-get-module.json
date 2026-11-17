@@ -1,0 +1,287 @@
+﻿{
+  "ok": true,
+  "data": {
+    "_meta": {
+      "access_tokens": [],
+      "affordance": {
+        "use_when": [
+          "Read current fields, constraints, options, and values before editing one module."
+        ],
+        "tips": [
+          "Use `module_id`, not `module`. The accepted set is closed and exact: `basic-info`, `assets-upload`, `profile-promotion`, `windows-exclusive`, `platform-status`, `release-settings`, `package`, `developer-info`, `other-settings`. Shortened or translated ids are rejected with 400 `invalid_parameters` 鈥?`other`, `others`, `settings`, `basic`, `store`, `assets`, `platform` are not module ids, and \"鍏朵粬璁剧疆\" is `other-settings`.",
+          "If the server rejects a module, use its current available-module information and the field map; do not guess another alias. Module availability and returned fields remain server-controlled."
+        ],
+        "examples": [
+          {
+            "description": "Read the basic-information module",
+            "command": "taptap-cli app get-app-module --dev-id \"\u003cdeveloper_id\u003e\" --app-id \"\u003capp_id\u003e\" --data '{\"module_id\":\"basic-info\"}'"
+          }
+        ],
+        "skills": [
+          "taptap-app-edit/references/app-edit-field-map.md"
+        ]
+      },
+      "danger": false,
+      "envelope_version": "1.0",
+      "required_scopes": [],
+      "risk": "read",
+      "scopes": []
+    },
+    "description": "璇诲彇 App 璧勬枡涓煇涓ā鍧楃殑瀹屾暣瀛楁璇︽儏銆佸綋鍓嶅€煎拰鍙鎬ц鍒欍€?,
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "app_id": {
+          "description": "娓告垙 ID",
+          "format": "int64",
+          "type": "integer"
+        },
+        "developer_id": {
+          "description": "鍘傚晢 ID",
+          "format": "int64",
+          "type": "integer"
+        },
+        "module_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "app_id",
+        "developer_id",
+        "module_id"
+      ],
+      "type": "object"
+    },
+    "name": "app get-module",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "result": {
+          "description": "璧勬枡妯″潡璇︽儏",
+          "properties": {
+            "fields": {
+              "additionalProperties": {
+                "description": "瀛楁璇︽儏",
+                "properties": {
+                  "collection_spec": {
+                    "description": "闆嗗悎瀛楁鏁伴噺绾︽潫涓庡畬鎴愬害",
+                    "properties": {
+                      "current_count": {
+                        "format": "int32",
+                        "type": "integer"
+                      },
+                      "max_items": {
+                        "format": "int32",
+                        "type": "integer"
+                      },
+                      "min_items": {
+                        "format": "int32",
+                        "type": "integer"
+                      },
+                      "missing_count": {
+                        "format": "int32",
+                        "type": "integer"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "constraints": {
+                    "description": "鏂囨湰绾︽潫锛坧attern 涓嶈繑鍥烇紝浠呰繑鍥炴彁绀猴級",
+                    "properties": {
+                      "max_length": {
+                        "format": "int32",
+                        "type": "integer"
+                      },
+                      "min_length": {
+                        "format": "int32",
+                        "type": "integer"
+                      },
+                      "pattern_hint": {
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "current_value": {
+                    "description": "褰撳墠鍊硷紙canonical 褰㈡€侊細浠绘剰 JSON 鍊硷級",
+                    "type": [
+                      "string",
+                      "number",
+                      "boolean",
+                      "array",
+                      "object",
+                      "null"
+                    ]
+                  },
+                  "field_id": {
+                    "description": "瀛楁 ID",
+                    "type": "string"
+                  },
+                  "filled": {
+                    "description": "鏄惁宸插～鍐?,
+                    "type": "boolean"
+                  },
+                  "hint": {
+                    "description": "瀛楁濉啓鎻愮ず锛堝锛氫即闅忔彁瀹′紶鍏ワ紝涓嶅彲閫氳繃 saveChanges 淇敼锛?,
+                    "type": "string"
+                  },
+                  "image_spec": {
+                    "description": "鍥剧墖瑙勬牸",
+                    "properties": {
+                      "aspect_ratio": {
+                        "type": "string"
+                      },
+                      "content_note": {
+                        "type": "string"
+                      },
+                      "formats": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "max_file_size_mb": {
+                        "format": "int32",
+                        "type": "integer"
+                      },
+                      "min_height": {
+                        "format": "int32",
+                        "type": "integer"
+                      },
+                      "min_width": {
+                        "format": "int32",
+                        "type": "integer"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "input_type": {
+                    "description": "杈撳叆绫诲瀷锛歵ext / textarea / select / image / image_array / video / size",
+                    "type": "string"
+                  },
+                  "label": {
+                    "description": "瀛楁鍚?,
+                    "type": "string"
+                  },
+                  "options": {
+                    "description": "鍙€夊€硷紙select 瀛楁锛?,
+                    "items": {
+                      "description": "鍙€夊€硷紙select 瀛楁锛?,
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "state": {
+                    "description": "蹇呭～鐘舵€侊細required / suggested / optional",
+                    "type": "string"
+                  },
+                  "validation_error": {
+                    "description": "褰撳墠鍊间笉婊¤冻绾︽潫鏃剁殑閿欒",
+                    "type": "string"
+                  },
+                  "value_labels": {
+                    "additionalProperties": {
+                      "description": "鍙€夊€兼爣绛撅紙select 瀛楁锛?,
+                      "type": "string"
+                    },
+                    "description": "鍙€夊€兼爣绛撅紙select 瀛楁锛?,
+                    "type": "object"
+                  },
+                  "video_spec": {
+                    "description": "瑙嗛瑙勬牸",
+                    "properties": {
+                      "aspect_ratio": {
+                        "type": "string"
+                      },
+                      "formats": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "max_seconds": {
+                        "format": "int32",
+                        "type": "integer"
+                      },
+                      "min_height": {
+                        "format": "int32",
+                        "type": "integer"
+                      },
+                      "min_seconds": {
+                        "format": "int32",
+                        "type": "integer"
+                      },
+                      "min_width": {
+                        "format": "int32",
+                        "type": "integer"
+                      },
+                      "requirements": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "scene": {
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  }
+                },
+                "type": "object"
+              },
+              "description": "妯″潡瀛楁璇︽儏锛坒ieldId 鈫?瀛楁璇︽儏锛?,
+              "type": "object"
+            },
+            "module_id": {
+              "description": "妯″潡 ID",
+              "type": "string"
+            },
+            "revision": {
+              "description": "妯″潡鏁版嵁鐨勫綋鍓嶇増鏈?ID 鏁板瓧褰㈠紡",
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "fields",
+            "module_id",
+            "revision"
+          ],
+          "type": "object"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "accepted"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "result",
+        "status"
+      ],
+      "type": "object"
+    }
+  },
+  "meta": {
+    "catalog": {
+      "source_version": "1.0.78",
+      "digest": "sha256:da5cb96c1964292a2f4da25934058f894292b833d802c7ed5b5bd8a1558a0c62",
+      "loaded_from": "embedded"
+    }
+  },
+  "_notice": {
+    "update_check": {
+      "command": "taptap-cli update --check --json",
+      "message": "Automatic update check could not complete; run: taptap-cli update --check --json",
+      "reason": "timeout",
+      "status": "unavailable"
+    }
+  }
+}

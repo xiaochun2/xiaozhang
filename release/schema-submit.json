@@ -1,0 +1,136 @@
+{
+  "ok": true,
+  "data": {
+    "_meta": {
+      "access_tokens": [],
+      "affordance": {
+        "use_when": [
+          "Submit one material after checking current action blockers and confirming the payload. Approved or rejected materials may have a new draft; uploaded is not the only valid starting state. Send expected_snapshot only when the current schema supports it."
+        ],
+        "skills": [
+          "taptap-qualification/references/qualification-lifecycle.md"
+        ]
+      },
+      "danger": true,
+      "envelope_version": "1.0",
+      "required_scopes": [],
+      "risk": "high-risk-write",
+      "scopes": []
+    },
+    "description": "正式提交指定资质的增量审核。",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "app_id": {
+          "description": "游戏 ID",
+          "format": "int64",
+          "type": "integer"
+        },
+        "developer_id": {
+          "description": "厂商 ID",
+          "format": "int64",
+          "type": "integer"
+        },
+        "expected_snapshot": {
+          "description": "查询返回的确认快照；执行前检测漂移，不提供原子 CAS",
+          "type": "string"
+        },
+        "qualification_type": {
+          "description": "标准资质类型",
+          "enum": [
+            "game-license",
+            "icp-filing",
+            "privacy-compliance",
+            "anti-addiction",
+            "ai-declaration",
+            "software-copyright",
+            "authorization-letters",
+            "security-assessment"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "app_id",
+        "developer_id",
+        "qualification_type"
+      ],
+      "type": "object"
+    },
+    "name": "qualification submit",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "result": {
+          "properties": {
+            "audit_id": {
+              "description": "本次资质审核记录 ID",
+              "type": "string"
+            },
+            "qualification_type": {
+              "description": "已提交审核的标准资质类型",
+              "enum": [
+                "game-license",
+                "icp-filing",
+                "privacy-compliance",
+                "anti-addiction",
+                "ai-declaration",
+                "software-copyright",
+                "authorization-letters",
+                "security-assessment"
+              ],
+              "type": "string"
+            },
+            "submit_fields": {
+              "description": "本次增量提审的资质字段",
+              "items": {
+                "description": "本次增量提审的资质字段",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "version": {
+              "description": "本次增量提审使用的资质版本",
+              "type": "string"
+            }
+          },
+          "required": [
+            "audit_id",
+            "qualification_type",
+            "submit_fields",
+            "version"
+          ],
+          "type": "object"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "accepted"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "result",
+        "status"
+      ],
+      "type": "object"
+    }
+  },
+  "meta": {
+    "catalog": {
+      "source_version": "1.0.78",
+      "digest": "sha256:da5cb96c1964292a2f4da25934058f894292b833d802c7ed5b5bd8a1558a0c62",
+      "loaded_from": "embedded"
+    }
+  },
+  "_notice": {
+    "update_check": {
+      "command": "taptap-cli update --check --json",
+      "message": "Automatic update check could not complete; run: taptap-cli update --check --json",
+      "reason": "timeout",
+      "status": "unavailable"
+    }
+  }
+}

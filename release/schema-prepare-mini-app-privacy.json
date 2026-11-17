@@ -1,0 +1,92 @@
+{
+  "ok": true,
+  "data": {
+    "_meta": {
+      "access_tokens": [],
+      "danger": true,
+      "envelope_version": "1.0",
+      "required_scopes": [],
+      "risk": "write",
+      "scopes": []
+    },
+    "description": "为指定包体版本准备报告，不保存声明或提交审核；存在扫描限制时不能推断没有个人信息。",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "app_id": {
+          "description": "游戏 ID",
+          "format": "int64",
+          "type": "integer"
+        },
+        "developer_id": {
+          "description": "厂商 ID",
+          "format": "int64",
+          "type": "integer"
+        },
+        "version_id": {
+          "format": "int64",
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "app_id",
+        "developer_id",
+        "version_id"
+      ],
+      "type": "object"
+    },
+    "name": "qualification prepare-mini-app-privacy",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "result": {
+          "properties": {
+            "has_limitations": {
+              "type": "boolean"
+            },
+            "report_key": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string"
+            },
+            "version_id": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "accepted"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "result",
+        "status"
+      ],
+      "type": "object"
+    }
+  },
+  "meta": {
+    "catalog": {
+      "source_version": "1.0.78",
+      "digest": "sha256:da5cb96c1964292a2f4da25934058f894292b833d802c7ed5b5bd8a1558a0c62",
+      "loaded_from": "embedded"
+    }
+  },
+  "_notice": {
+    "update_check": {
+      "command": "taptap-cli update --check --json",
+      "message": "Automatic update check could not complete; run: taptap-cli update --check --json",
+      "reason": "timeout",
+      "status": "unavailable"
+    }
+  }
+}

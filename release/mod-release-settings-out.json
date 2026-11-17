@@ -1,0 +1,59 @@
+﻿{
+  "ok": true,
+  "data": {
+    "result": {
+      "fields": {
+        "release_method": {
+          "field_id": "release_method",
+          "filled": false,
+          "hint": "浼撮殢鎻愬涓€娆℃€т紶鍏ワ紝涓嶅彲閫氳繃 saveChanges 淇敼",
+          "input_type": "select",
+          "label": "涓婄嚎鏂瑰紡",
+          "state": "optional"
+        },
+        "release_schedule": {
+          "field_id": "release_schedule",
+          "filled": false,
+          "hint": "浼撮殢鎻愬涓€娆℃€т紶鍏ワ紙submit-review 鐨?release_schedule锛夛紝涓嶅彲閫氳繃 saveChanges 淇敼",
+          "input_type": "select",
+          "label": "鍙戝竷妗ｆ湡",
+          "options": [
+            "immediate",
+            "scheduled_exact"
+          ],
+          "state": "optional",
+          "value_labels": {
+            "immediate": "绔嬪嵆涓婄嚎",
+            "scheduled_exact": "绮剧‘瀹氭椂涓婄嚎"
+          }
+        },
+        "release_time": {
+          "field_id": "release_time",
+          "filled": false,
+          "hint": "浼撮殢鎻愬涓€娆℃€т紶鍏ワ紝涓嶅彲閫氳繃 saveChanges 淇敼",
+          "input_type": "text",
+          "label": "瀹氭椂涓婄嚎鏃堕棿",
+          "state": "optional"
+        }
+      },
+      "module_id": "release-settings",
+      "revision": 1291170
+    },
+    "status": "completed"
+  },
+  "meta": {
+    "catalog": {
+      "source_version": "1.0.78",
+      "digest": "sha256:da5cb96c1964292a2f4da25934058f894292b833d802c7ed5b5bd8a1558a0c62",
+      "loaded_from": "embedded"
+    }
+  },
+  "_notice": {
+    "update_check": {
+      "command": "taptap-cli update --check --json",
+      "message": "Automatic update check could not complete; run: taptap-cli update --check --json",
+      "reason": "timeout",
+      "status": "unavailable"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "icon": "d:\\Program Files\\code\\new_game\\release\\store-assets\\icon-1024.png",
+  "banner": "d:\\Program Files\\code\\new_game\\release\\store-assets\\banner-1920x1080.png",
+  "square": "d:\\Program Files\\code\\new_game\\release\\store-assets\\square-1440.png",
+  "shots": [
+    "d:\\Program Files\\code\\new_game\\release\\store-assets\\shot-1.png",
+    "d:\\Program Files\\code\\new_game\\release\\store-assets\\shot-2.png",
+    "d:\\Program Files\\code\\new_game\\release\\store-assets\\shot-3.png",
+    "d:\\Program Files\\code\\new_game\\release\\store-assets\\shot-4.png"
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "ok": true,
+  "data": {
+    "handoff": {
+      "stage": "material_uploaded",
+      "completed": [
+        "video uploaded",
+        "video ID returned"
+      ],
+      "pending": [
+        "video ID still needs to be written into profile field \"gameplay_demo_video\""
+      ],
+      "targetField": "gameplay_demo_video",
+      "userActionRequired": true,
+      "userActionSummary": "需要将返回的 videoId 写回资料字段 \"gameplay_demo_video\"",
+      "nextActions": [
+        {
+          "id": "save_video_field",
+          "label": "将 videoId 写入资料字段 \"gameplay_demo_video\"",
+          "requiresConfirmation": true
+        }
+      ],
+      "links": [
+        {
+          "kind": "admin",
+          "label": "开发者后台资料页",
+          "url": "https://developer.taptap.cn/v3/522806/app/1071466/store/update",
+          "available": true,
+          "source": "derived_from_ids"
+        }
+      ]
+    },
+    "nextStep": "video upload is complete; write videoId to app-edit field \"gameplay_demo_video\" while transcoding continues independently",
+    "targetField": "gameplay_demo_video",
+    "uploadStatus": "uploaded",
+    "validationWarnings": [
+      "实机录屏 still requires server-side duration, resolution, aspect ratio, codec, and content review"
+    ],
+    "videoId": 6105102
+  },
+  "_notice": {
+    "update_check": {
+      "command": "taptap-cli update --check --json",
+      "message": "Automatic update check could not complete; run: taptap-cli update --check --json",
+      "reason": "timeout",
+      "status": "unavailable"
+    }
+  }
+}

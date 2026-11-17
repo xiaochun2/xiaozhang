@@ -1,0 +1,108 @@
+{
+  "ok": true,
+  "data": {
+    "_meta": {
+      "access_tokens": [],
+      "affordance": {
+        "use_when": [
+          "Save an age qualification using a fresh snapshot. Follow the current schema's allowed values, then read back before submitting."
+        ],
+        "skills": [
+          "taptap-qualification/references/qualification-lifecycle.md"
+        ]
+      },
+      "danger": true,
+      "envelope_version": "1.0",
+      "required_scopes": [],
+      "risk": "write",
+      "scopes": []
+    },
+    "description": "使用当前资质快照保存 8/12/16 适龄分级；保存不等于审核通过。",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "age_grade": {
+          "enum": [
+            8,
+            12,
+            16
+          ],
+          "format": "int32",
+          "type": "integer"
+        },
+        "app_id": {
+          "description": "游戏 ID",
+          "format": "int64",
+          "type": "integer"
+        },
+        "developer_id": {
+          "description": "厂商 ID",
+          "format": "int64",
+          "type": "integer"
+        },
+        "expected_snapshot": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "age_grade",
+        "app_id",
+        "developer_id",
+        "expected_snapshot"
+      ],
+      "type": "object"
+    },
+    "name": "qualification save-age-grade",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "result": {
+          "properties": {
+            "action": {
+              "type": "string"
+            },
+            "audit_id": {
+              "type": "string"
+            },
+            "fields": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "accepted"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "result",
+        "status"
+      ],
+      "type": "object"
+    }
+  },
+  "meta": {
+    "catalog": {
+      "source_version": "1.0.78",
+      "digest": "sha256:da5cb96c1964292a2f4da25934058f894292b833d802c7ed5b5bd8a1558a0c62",
+      "loaded_from": "embedded"
+    }
+  },
+  "_notice": {
+    "update_check": {
+      "command": "taptap-cli update --check --json",
+      "message": "Automatic update check could not complete; run: taptap-cli update --check --json",
+      "reason": "timeout",
+      "status": "unavailable"
+    }
+  }
+}

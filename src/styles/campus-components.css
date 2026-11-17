@@ -81,6 +81,11 @@ button.accent {
   box-shadow: 0 8px 18px rgba(242, 174, 101, 0.28);
 }
 
+.campus-btn--accent:hover:not(:disabled) {
+  background: #d9924a;
+  color: #fff;
+}
+
 .campus-btn em,
 button.primary em,
 button.accent em {

@@ -1,0 +1,253 @@
+﻿{
+  "ok": true,
+  "data": {
+    "_meta": {
+      "access_tokens": [],
+      "affordance": {
+        "use_when": [
+          "Save explicit store-information changes after inspecting the current draft and confirming the exact fields to update."
+        ],
+        "avoid_when": [
+          "You only need to inspect current readiness 鈫?use `analyze-app-status`",
+          "You are changing the selected package rather than store fields 鈫?use `select-package`"
+        ],
+        "prerequisites": [
+          "Current draft state from `analyze-app-status` or `get-app-module`",
+          "An idempotency key and explicit user-approved field values"
+        ],
+        "tips": [
+          "Read each field's latest value and supply `expected`; a previous dry-run does not save changes.",
+          "On conflict, reread the affected fields. If the requested value is already present, report that observed state without another write. Otherwise compare the new value with the requested change before retrying; never use `force=true` as automatic recovery.",
+          "Inspect `updated_fields` and `stale` independently, even after HTTP success. Report only the fields actually saved, and reread uncertain fields on the same draft."
+        ],
+        "examples": [
+          {
+            "description": "Preview exact changes",
+            "command": "taptap-cli app save-changes --dev-id \"\u003cdeveloper_id\u003e\" --app-id \"\u003capp_id\u003e\" --data @changes.json --idempotency-key \"\u003ckey\u003e\" --dry-run"
+          }
+        ],
+        "skills": [
+          "taptap-app-edit/references/app-edit-fields-and-packages.md"
+        ]
+      },
+      "danger": true,
+      "envelope_version": "1.0",
+      "required_scopes": [],
+      "risk": "write",
+      "scopes": []
+    },
+    "description": "淇濆瓨 App 璧勬枡缂栬緫鑽夌锛屾敮鎸侀€愬瓧娈靛啓鍏ワ紱read-before-write 鏍￠獙銆?,
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "app_id": {
+          "description": "娓告垙 ID",
+          "format": "int64",
+          "type": "integer"
+        },
+        "changes": {
+          "description": "瀛楁鍙樻洿鍒楄〃",
+          "items": {
+            "anyOf": [
+              {
+                "required": [
+                  "expected"
+                ]
+              },
+              {
+                "properties": {
+                  "force": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "force"
+                ]
+              }
+            ],
+            "description": "鍗曟潯瀛楁鍙樻洿",
+            "properties": {
+              "expected": {
+                "description": "read-before-write 闃叉紓绉伙細褰撳墠瀛楁鍊煎揩鐓э紙浠绘剰 JSON锛?,
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "array",
+                  "object",
+                  "null"
+                ]
+              },
+              "field_id": {
+                "description": "瀛楁 ID",
+                "type": "string"
+              },
+              "force": {
+                "description": "鏄惧紡澹版槑瑕嗙洊鏈€鏂板€硷紝璺宠繃 expected 鏍￠獙",
+                "type": "boolean"
+              },
+              "old_value": {
+                "description": "replace_one 鏃舵寚鏄庤鏇挎崲鐨勭幇鏈夊€硷紙浠绘剰 JSON锛涘繀濉笖蹇呴』鍛戒腑鐜版湁鍊硷級锛涘叾瀹?op 蹇界暐鏈瓧娈?,
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "array",
+                  "object",
+                  "null"
+                ]
+              },
+              "op": {
+                "description": "鏁扮粍鎿嶄綔锛岄棴闆嗭細append锛堟寜 value 杩藉姞骞跺幓閲嶏級/ remove锛堟寜 value 鍒犻櫎锛? replace_one锛堟妸 old_value 鎸囧悜鐨勭幇鏈夊€兼浛鎹负鍞竴鐨勬柊鍊硷紱缂?old_value銆佹柊鍊间负绌恒€佹柊鍊煎浜?1 涓€乷ld_value 鏈懡涓潎杩斿洖 400锛? replace锛堟暣浣撴浛鎹級锛涙湭璇嗗埆鐨勫彇鍊艰繑鍥?400銆俛ppend / remove / replace_one / replace 瀵规埅鍥惧瓧娈碉紙screenshots / screenshots_ios锛変笌 app_platforms 鍧囩敓鏁堛€傞噸鎶曡涔夛細鍚屼竴 Idempotency-Key 閲嶆斁杩斿洖棣栨缁撴灉锛涙崲鏂?key 閲嶆姇 replace_one 浼氬洜 old_value 宸蹭笉瀛樺湪杩斿洖 400銆?,
+                "enum": [
+                  "append",
+                  "remove",
+                  "replace_one",
+                  "replace"
+                ],
+                "type": "string"
+              },
+              "value": {
+                "description": "瀛楁鏂板€硷紙浠绘剰 JSON锛歵ext=string / image={url, info} 瀵硅薄 / video=鏁板瓧 / localized=瀵硅薄锛夈€傚浘鐗囧€煎繀椤诲甫瀹屾暣 info锛坽url, info{size,format,width,height,image_ave.rgb}}锛屼簲涓瓧娈甸兘瑕佹湁鏁堝€硷紝缂轰竴涓嵆 400锛夛紱info 鐩存帴鐢ㄤ笂浼犳帴鍙ｈ繑鍥炵殑鍗冲彲銆俇RL 涓嶅睘浜庢垜浠殑鍥剧墖瀛樺偍鏃讹紝鍏堜笅杞藉浘鐗囧苟璋冪敤 asset-library upload-image 鎹㈠彇 url + info锛屽閮ㄥ湴鍧€涓嶈兘鐩存帴鍐欍€傛暟缁勫瓧娈电殑 remove 閫夋嫨鍣ㄤ粛鍙彧缁?URL銆?,
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "array",
+                  "object",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "field_id"
+            ],
+            "type": "object"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "developer_id": {
+          "description": "鍘傚晢 ID",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "app_id",
+        "changes",
+        "developer_id"
+      ],
+      "type": "object"
+    },
+    "name": "app save-changes",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "result": {
+          "description": "淇濆瓨璧勬枡淇敼缁撴灉",
+          "properties": {
+            "revision": {
+              "description": "淇濆瓨鍚庣殑鑽夌鐗堟湰 ID 鏁板瓧褰㈠紡",
+              "format": "int64",
+              "type": "integer"
+            },
+            "stale": {
+              "description": "鍥犲啓鍏ラ『搴忓鑷翠笌褰撳墠鑽夌浜嬪疄鍐茬獊鐨勫瓧娈碉紝闇€閲嶆柊璇诲彇鍚庡啀娆′繚瀛?,
+              "items": {
+                "description": "鍐茬獊瀛楁",
+                "properties": {
+                  "actual_before": {
+                    "description": "瀹為檯褰撳墠鍊硷紝渚涢噸鏂板喅绛栵紙浠绘剰 JSON锛屼笌璇锋眰渚?change.value 鍚岀被鍨嬶級",
+                    "type": [
+                      "string",
+                      "number",
+                      "boolean",
+                      "array",
+                      "object",
+                      "null"
+                    ]
+                  },
+                  "expected": {
+                    "description": "璋冪敤鏂规彁渚涚殑褰撳墠鍊煎揩鐓э紙浠绘剰 JSON锛屼笌璇锋眰渚?change.value 鍚岀被鍨嬶級",
+                    "type": [
+                      "string",
+                      "number",
+                      "boolean",
+                      "array",
+                      "object",
+                      "null"
+                    ]
+                  },
+                  "field_id": {
+                    "description": "瀛楁 ID",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "field_id"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "updated_fields": {
+              "description": "鏈淇濆瓨瀹為檯淇敼鐨勫瓧娈靛垪琛?,
+              "items": {
+                "description": "宸叉洿鏂板瓧娈?,
+                "properties": {
+                  "field_id": {
+                    "description": "瀛楁 ID",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "field_id"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "version_id": {
+              "description": "褰撳墠鑽夌鐨勭増鏈?ID",
+              "type": "string"
+            }
+          },
+          "required": [
+            "revision",
+            "version_id"
+          ],
+          "type": "object"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "accepted"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "result",
+        "status"
+      ],
+      "type": "object"
+    }
+  },
+  "meta": {
+    "catalog": {
+      "source_version": "1.0.78",
+      "digest": "sha256:da5cb96c1964292a2f4da25934058f894292b833d802c7ed5b5bd8a1558a0c62",
+      "loaded_from": "embedded"
+    }
+  },
+  "_notice": {
+    "update_check": {
+      "command": "taptap-cli update --check --json",
+      "message": "Automatic update check could not complete; run: taptap-cli update --check --json",
+      "reason": "timeout",
+      "status": "unavailable"
+    }
+  }
+}

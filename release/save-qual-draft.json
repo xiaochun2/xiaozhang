@@ -1,0 +1,21 @@
+{
+  "app_id": 1071466,
+  "developer_id": 522806,
+  "expected_snapshot": "4a9ddf9fc651be89f641c00af2602f61aaa683460832cb365fbf6715e242bab0",
+  "app_features": {
+    "is_internet_required": true,
+    "has_in_app_purchase": false,
+    "has_text_story_simulation": true,
+    "has_ai_content": false,
+    "has_ip_authorization": false
+  },
+  "qualification": {
+    "qualification_type": "ai-declaration",
+    "aigc_qualification": {
+      "provide_aigc_service": false,
+      "package_types": [
+        "h5"
+      ]
+    }
+  }
+}

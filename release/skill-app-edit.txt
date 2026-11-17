@@ -1,0 +1,97 @@
+﻿---
+name: taptap-app-edit
+version: 1.0.0
+description: "TapTap 娓告垙璧勬枡缁存姢銆佸瓧娈典慨鏀广€佺礌鏉愯鏍笺€佸寘浣撴Ы浣嶉€夋嫨銆佸鏍告彁浜ゃ€佹挙瀹°€佸彂甯冦€佸畾鏃躲€佽崏绋块噸缃€佸垱鎰忓伐鍧婂崌绾у拰鐗堟湰鍘嗗彶 runbook銆傜敤鎴疯瀹屽杽璧勬枡銆佹敼瀛楁銆佹崲涓诲寘浣撴垨 Windows 鍖呬綋銆佹彁瀹°€佹挙瀹°€佷笂绾挎垨鏌ユ嫆瀹″師鍥犳椂浣跨敤锛涗笉璐熻矗鏂版父鎴忓垱寤恒€佸寘浣撳簱璇婃柇鎴栨祴璇曡鍒掔鐞嗐€?
+metadata:
+  requires:
+    bins: ["taptap-cli"]
+  cliHelp: "taptap-cli app --help;taptap-cli schema app precheck-app-review;taptap-cli schema app prepare-review-snapshot;taptap-cli schema app submit-app-review"
+---
+
+# app-edit
+
+寮€濮嬪墠鍏堣 [`../taptap-cli/references/shared-execution.md`](../taptap-cli/references/shared-execution.md)銆傛湰 skill 淇敼璧勬枡鑽夌鍜岀増鏈姸鎬侊紝鏄?TapTap CLI 鐨勯珮椋庨櫓涓氬姟鍩熴€?
+**CRITICAL 鈥?鍐欏叆鍓嶅繀椤?read-before-write锛氳鍙栫湡瀹炲瓧娈点€佸彲瑙佹€с€佸繀濉」銆佺増鏈姸鎬佸拰鏈€鏂?`expected`锛屽啀鏋勯€犲彉鏇淬€?*
+
+**CRITICAL 鈥?瀹℃牳銆佸彂甯冦€佹挙瀹°€佹挙瀹氭椂銆佺珛鍗充笂绾垮拰閲嶇疆鑽夌绛夐珮褰卞搷鍔ㄤ綔锛屽繀椤诲厛 dry-run 鎴栫瓑寰呯敤鎴锋槑纭‘璁ゃ€傚摢浜涜姹備笉绠楁彁瀹℃剰鍥撅紝浠?[shared execution](../taptap-cli/references/shared-execution.md)銆屾彁瀹℃剰鍥鹃棬绂併€嶇殑鍞竴璇嶈〃涓哄噯锛涗笁姝ュ绾︽祦绋嬬粏鑺傝 [audit and history](references/app-edit-audit-and-history.md)銆?*
+
+**CRITICAL 鈥?鍒涙剰宸ュ潑鍗囩骇蹇呴』鐢辩敤鎴锋槑纭‘璁ょ洰鏍囨父鎴忋€佺増鏈強鈥滃崌绾у悗鏃犳硶杞洖鍏冲崱鈥濓紱dry-run銆乣--yes` 鎴栭殣绉佸０鏄庣‘璁ゅ潎涓嶈兘鏇夸唬鍗囩骇纭銆傚父瑙勯殣绉侀厤缃紭鍏堜氦鎺?Web锛涙湁闄愨€滀笉澶勭悊涓汉淇℃伅鈥濆０鏄庝粎鍦ㄧ敤鎴锋槑纭€夋嫨涓旇兘鍔涙敮鎸佹椂鍔炵悊銆?*
+
+**CRITICAL 鈥?鐗堟湰鍙戝竷涓庡垎鍙戠姸鎬佺嫭绔嬨€傚彂甯冨墠璇诲彇 `platform-status`锛屽彧澶勭悊褰撴瀹為檯杩斿洖涓斿彲瑙佺殑 `region_flag_*`锛屼笉鑳介璁惧叆鍙ｃ€佺姸鎬佹垨鏇跨敤鎴峰垏鎹€?*
+
+**姣忔璧勬枡銆佸寘浣撱€佸鏍告垨鍙戝竷鍐欐搷浣滃畬鎴愬悗蹇呴』杈撳嚭 handoff锛氬綋鍓嶉樁娈点€佸凡瀹屾垚銆佹湭瀹屾垚銆佺敤鎴风幇鍦ㄦ槸鍚﹂渶瑕佹搷浣溿€佷笅涓€娆℃鏌ユ椂闂淬€佷笅涓€姝ヤ笟鍔″姩浣滃拰瀹為檯杩斿洖鐨勯〉闈㈡垨璇曠帺鍏ュ彛銆傚鏍镐腑涓嶅緱琛ㄨ堪涓哄凡涓婄嚎锛涘畾鏃朵笂绾夸笉寰楄〃杩颁负宸插彂甯冦€?*
+
+**鎴愬姛鎻愪氦瀹℃牳鎴栧彂甯冨苟瀹屾垚鐘舵€佽鍥炲悗锛屾寜鍏变韩鈥滆繍钀ラ樁娈垫墜鍐屼氦鎺モ€濊鍙栧唴缃畼鏂规弿杩板苟琛ュ厖涓€涓墜鍐屻€傛彁瀹″墠鐢?`list-app-versions --page-all` 璇诲彇瀹屾暣鍙戝竷鍘嗗彶锛氭棤鍙戝竷鍘嗗彶涓旂洰鏍囦负棣栨姝ｅ紡涓婄嚎鎵嶆槸 `first_launch`锛屽凡鏈?`online` / `offline` / `published` 璇佹嵁鐨勭増鏈洿鏂版槸 `long_term`锛涘巻鍙蹭笉瀹屾暣鏃朵笉寰楃寽娴嬶紝鍒ゅ畾姝ｆ湰瑙?[杩愯惀闃舵璇嗗埆涓庡畼鏂规墜鍐宂(../taptap-cli/references/operation-handbooks.md)銆岃瘑鍒『搴忋€嶃€?*
+
+**CRITICAL 鈥?璧勬枡鎻愮ず鍜屾彁瀹￠闄╁繀椤诲尯鍒?`official_rule`銆乣current_fact`銆乣historical_review`銆乣test_evidence` 鍜?`agent_assessment`銆傚彧鏈変袱浠?v4 瀹樻柟鏂囨。鏄庣‘鍐欏嚭鐨勫唴瀹规墠鑳界О涓哄畼鏂硅鑼冿紱瀹℃牳鍘熸枃涓嶅緱鍙嶅悜琛ラ€犳垚瑙勫垯銆傚～鍐欐垨鎻愬鍓嶆寜 [review risk checklist](references/review-risk-checklist.md) 杈撳嚭鍙函婧愮粨璁恒€?*
+
+**鍒涘缓鍚庝氦鎺ャ€佹瘡娆¤祫鏂欐垨绱犳潗鍐欏叆瀹屾垚骞跺啓鍚庤鍥炪€佷互鍙婃寮忔彁瀹″墠锛岄兘蹇呴』涓诲姩鎻愰啋鐢ㄦ埛鎸夎鑼冨畬鍠勬父鎴忓浘鏍囥€佺畝浠嬨€佸紑鍙戣€呯殑璇濄€佹父鎴忔埅鍥俱€佸浼犲浘銆佸疄鏈鸿棰戝強褰撳墠鍙涓旈€傜敤鐨勯椤垫帹鑽愮礌鏉愰€夐」銆傜郴缁熼粯璁ゅ浘鏍囦粎鐢ㄤ簬瀹屾垚娓告垙鍒涘缓锛屼笉浠ｈ〃宸查€氳繃绱犳潗瀹℃牳锛涘鏈浛鎹负绗﹀悎瑕佹眰鐨勬寮忓浘鏍囷紝鍙兘瀵艰嚧绱犳潗瀹℃牳涓嶉€氳繃骞跺奖鍝嶉椤垫垨缂栬緫鎺ㄨ崘灞曠ず銆傚彧鍦ㄥ綋鍓嶅瓧娈?`required`銆佹湇鍔＄棰勬缁撴灉鎴栭€傜敤鐨勫畼鏂圭墿鏂欒姹傛彁渚涗緷鎹椂锛屾墠灏嗗叾鍒椾负鎻愬 blocker銆傞椤垫帹鑽愬拰璁块棶鍏ュ彛鐨勫奖鍝嶅繀椤诲垎鍒紩鐢ㄥ畼鏂规爮鐩潯浠舵垨褰撳墠 `platform-status` 璇佹嵁锛屼笉寰椾粠绱犳潗缂哄け鐩存帴鎺ㄥ鍏蜂綋璁块棶璺緞銆?*
+
+**绱犳潗缂哄彛鍜屽€欓€変笉寰楁贩鍐欍€傝緭鍑鸿祫鏂欎綋妫€鎴?handoff 鏃讹紝鎸夊浘鏍囥€佺畝浠嬨€佸紑鍙戣€呯殑璇濄€佹父鎴忔埅鍥俱€佸浼犲浘銆佸疄鏈鸿棰戝拰棣栭〉鎺ㄨ崘閫愰」鍒楀嚭褰撳墠鐘舵€侊紱鏈湴鍊欓€夋寜鍦烘櫙閫愰」鍒楀嚭锛屾瘡涓枃浠跺崟鐙緭鍑哄疄闄呯粷瀵硅矾寰勩€傚涓昏兘杩斿洖鍥剧墖鏃堕€愬紶灞曠ず骞朵繚鐣欒矾寰勶紝涓嶈兘杩斿洖鍥剧墖鏃舵槑纭鏄庡苟閫愯杈撳嚭璺緞銆?*
+
+**鍖呬綋鍐欏叆浜嬪疄闂ㄧ 鈥?* `package_slots` 鏄敮涓€妲戒綅鍐欏叆浜嬪疄銆傚搷搴旂己灏戞Ы浣嶄俊鎭€佹Ы浣嶄笉鍙敤銆佸€欓€夐潪 ready 鎴?`expected` 缂哄け鏃跺繀椤诲仠姝㈠苟鍚戠敤鎴疯鏄庡綋鍓嶆棤娉曞畬鎴愬寘浣撶粦瀹氾紝骞舵牴鎹湰娆＄粨鏋滆В閲婃槸缂哄皯蹇呰淇℃伅銆佸寘浣撳皻鏈氨缁繕鏄綋鍓嶄笉鏀寔缁戝畾锛屼笉寰椾粠 `current_bindings`銆佸€欓€夋垨鍘嗗彶鍝嶅簲琛ラ€狅紱`current_bindings` 鍙敤浜庡睍绀恒€傚畬鏁村绾﹁ [fields and packages](references/app-edit-fields-and-packages.md)銆屽寘浣撴Ы浣嶃€嶃€傚寘浣撶鐞嗛〉闈㈠叆鍙ｄ笉鐢?CLI 鎵胯銆?
+## 蹇€熷喅绛?
+| 鐢ㄦ埛鎰忓浘 | 棣栭€夊懡浠?/ 娴佺▼ | 蹇呰 |
+| --- | --- | --- |
+| 鍒涙剰宸ュ潑鍗囩骇 | 鏌ヨ鏉′欢 鈫?Web 鎴栧彈闄愬０鏄庡姙鐞?鈫?鍥炴祦鏍搁獙 鈫?鍗曠嫭纭鍗囩骇 鈫?鎻愪氦骞惰鍥?| [level upgrade](references/app-edit-level-upgrade.md) |
+| 鈥滆繕宸粈涔?/ 鑳戒笉鑳芥彁瀹♀€?| 璇诲彇妯″潡銆佸寘浣撱€佺増鏈€佽祫璐ㄥ拰鍘嗗彶瀹℃牳鍚庣敓鎴愬垎灞傞闄╂竻鍗?| [skill analysis](references/app-edit-analysis.md)銆乕review risk checklist](references/review-risk-checklist.md) |
+| 鏌ュ瓧娈点€侀€夐」銆佸浘鐗?瑙嗛瑙勬牸 | `get-app-module --data '{"module_id":"<module_id>"}'`锛岄檮鐩稿叧瀹樻柟绔犺妭鍜屾鏌ョ姸鎬?| [field map](references/app-edit-field-map.md)銆乕review risk checklist](references/review-risk-checklist.md) |
+| 涓?H5 寮€鍚?PC 鍒嗗彂锛坄platform-status`銆乣region_flag_pc`锛?| 璇绘ā鍧?鈫?淇濈暀鍏ㄩ儴鐜版湁骞冲彴骞惰拷鍔?`PC_OFFICIAL` 鈫?鍐欏悗绔嬪嵆閲嶈 鈫?浠呭綋 `region_flag_pc` 宸插疄闄呰繑鍥炰笖 `options` 鍚?`4` 鏃舵墠鎸夋渶鏂?`expected` 鍐欏叆锛汬5 涓嶅緱浣跨敤 `windows` 妲?| [audit and history](references/app-edit-audit-and-history.md)銆乕field map](references/app-edit-field-map.md) |
+| 鏀规枃瀛椼€佸浘鐗囥€佽棰戠瓑鏅€氬瓧娈?| 璇绘ā鍧楄鎯咃紝甯︽渶鏂?`expected` 璋?`save-changes` | [fields and packages](references/app-edit-fields-and-packages.md) |
+| 鍒囨崲鎴栨竻绌轰富鍖呬綋 / Windows 鍖呬綋 | 纭鍙紪杈戣崏绋?鈫?蹇呰鏃?`create-draft` 鈫?閲嶆柊 `list-packages` 鈫?`select-package` / `clear-package` | [fields and packages](references/app-edit-fields-and-packages.md) |
+| 鎸?Spark version_code 缁戝畾璧勬枡椤典富鍖呬綋 | `list-packages` 鈫?`+bind-spark-version` dry-run 鈫?纭鍚?apply | [fields and packages](references/app-edit-fields-and-packages.md) |
+| 鎻愪氦瀹℃牳骞惰缃笂绾挎柟寮?| skill analysis 鈫?platform-status 鈫掞紙鍏冲崱/TapMaker 鍏堢 SCE 鍗忚锛夆啋 涓夋鎻愬锛岀粏鍒欒 [audit and history](references/app-edit-audit-and-history.md) |
+| 鎾ゅ銆佹挙瀹氭椂銆佹敼鏃堕棿銆侀噸缃崏绋?| 鍏堢‘璁?version 鐘舵€侊紝鍐嶉瑙堝拰纭 | [version lifecycle](references/app-edit-version-lifecycle.md) |
+| 瀹氭椂宸插埌浣嗙増鏈粛寰呬笂绾?| 纭 `status="scheduled"` 涓?`release_time <= now`锛屽啀纭鍚?`publish-scheduled-release` | [version lifecycle](references/app-edit-version-lifecycle.md) |
+| 浠庢枃妗堟枃浠舵彁鍙栧瓧娈点€佽瘑鍒浘鐗囩敤閫斻€佽鍒掓柊鐗堣祫鏂?| Agent 鐢熸垚鍊欓€夛紝璇诲綋鍓嶅€煎苟纭鍚庡啓鍏?| [skill analysis](references/app-edit-analysis.md) |
+| 褰撳墠缂哄皯鍥剧墖绱犳潗 | 鍏堣闂槸鍚︽湁鍙敤鐨勬湰鍦扮礌鏉愶紱娌℃湁鏃跺啀璇㈤棶鏄惁闇€瑕佷负鍏佽鐢熷浘鐨勫満鏅敓鎴愬€欓€夛紝骞惰浆 `taptap-asset-library` | [娓告垙鐗╂枡瑕佹眰](../taptap-cli/references/material-requirements.md)銆乕`taptap-asset-library`](../taptap-asset-library/SKILL.md) |
+| 涓婁紶鏈湴鐩綍銆亃ip 鎴栧绉嶅浘鐗?瑙嗛/鍖呬綋 | 杞?`taptap-materials`锛屼笂浼犲悗鍐嶅洖鏉ュ啓瀛楁鎴栫粦瀹氭Ы浣?| [`taptap-materials`](../taptap-materials/SKILL.md) |
+| 鏌ヤ笂涓€鐗堟嫆瀹″師鍥犳垨鍙戠増璁板綍 | `list-app-versions` / `get-app-version` | [audit and history](references/app-edit-audit-and-history.md) |
+| 鍖呬綋搴撱€佺嚎涓婂寘銆佽嚜娴嬩簩缁寸爜 | 杞?`taptap-package-management` | [`taptap-package-management`](../taptap-package-management/SKILL.md) |
+| 璧勮川缂哄彛鍜岃祫璐ㄥ閲忓鏍?| 杞?`taptap-qualification` | [`taptap-qualification`](../taptap-qualification/SKILL.md) |
+
+## 甯哥敤鍛戒护
+
+`package-selection.json` 鐨勫畬鏁存牸寮忓強蹇収鏉ユ簮瑙?[瀹屾暣缁戝畾杈撳叆绀轰緥](references/app-edit-fields-and-packages.md#瀹屾暣缁戝畾杈撳叆绀轰緥)銆?
+```bash
+taptap-cli app --help
+taptap-cli app get-app-module --app-id <appId> --dev-id <developerId> --data '{"module_id":"<module_id>"}'
+taptap-cli app list-app-versions --app-id <appId> --dev-id <developerId> --page 1 --page-size 20
+taptap-cli app save-changes --app-id <appId> --dev-id <developerId> --data @changes.json --idempotency-key <save-key> --dry-run
+taptap-cli app select-package --app-id <appId> --dev-id <developerId> --data @package-selection.json --idempotency-key <select-key> --dry-run
+taptap-cli app +bind-spark-version --app-id <appId> --dev-id <developerId> --data @spark-binding.json --idempotency-key <intent-key> --dry-run
+taptap-cli app prepare-review-snapshot --app-id <appId> --dev-id <developerId>
+taptap-cli app precheck-app-review --app-id <appId> --dev-id <developerId> --data @review-precheck.json
+taptap-cli app submit-app-review --app-id <appId> --dev-id <developerId> --data @audit-confirmation.json --idempotency-key <submit-key> --yes
+taptap-cli app publish-scheduled-release --app-id <appId> --dev-id <developerId> --idempotency-key <publish-key> --dry-run
+```
+
+## 鎵ц瑙勫垯
+
+瀹屾暣缁嗗垯锛堝寘浣撲袱鏉¤矾寰勩€佽祫璐ㄤ簨瀹炴敹闆嗐€佹彁瀹′笁姝ヤ笌棰勬鍙ｅ緞銆佽繍钀ラ樁娈垫墜鍐屻€佺礌鏉愯瘽鏈€佺敓鍛藉懆鏈燂級瑙?[execution rules](references/app-edit-execution-rules.md)銆傝鐐癸細
+
+- 缂?`developerId` / `appId` 鏃惰浆 `taptap-identity`锛涗笉鐭ラ亾瀛楁鎵€灞炴ā鍧楀厛璇?[field map](references/app-edit-field-map.md)銆?- 缂栬緫璧勬枡鏃跺厛纭璧勮川鍒ゆ柇浜嬪疄锛坄app_features`锛夛紝鍐嶆帹瀵煎繀椤昏祫璐ㄣ€?- 鍙€?iOS 瑕嗙洊瀛楁 `title_ios` / `description_ios` / `icon_ios` / `banner_4_ios` / `square_promo_image_ios` / `screenshots_ios`锛氱户鎵裤€佹竻绌轰笌 `expected` 鍙ｅ緞瑙?[field map](references/app-edit-field-map.md)銆?- 缁戝畾鍖呬綋鍓嶇‘璁よ崏绋垮彲缂栬緫锛涢渶瑕佸垱寤烘椂鍏堟牳瀵规潯浠跺拰鎺堟潈锛屽垱寤哄悗璋冪敤 `list-packages`銆備娇鐢ㄥ悓娆¤繑鍥炵殑 ready 鍊欓€夈€乣available=true` 妲戒綅鍜屽師鏍?`expected`锛屼緷娆￠瑙堛€佺‘璁ゅ啓鍏ャ€佹煡璇㈢粨鏋溿€俿tale/409 鏃舵殏鍋滃啓鍏ュ苟閲嶈锛?22 鎸夊叿浣撳師鍥犲鐞嗭紝涓嶅師鏍烽噸璇曟垨鐢?`force` 缁曡繃銆傝瑙?[fields and packages](references/app-edit-fields-and-packages.md)銆屽寘浣撴Ы浣嶃€嶃€?- 鏅€氬瓧娈垫瘡鎵逛笉瓒呰繃 10 涓?change锛沗expected` 涓ユ牸鍙栧€间笌 stale 澶勭悊瑙?[fields and packages](references/app-edit-fields-and-packages.md)銆屾枃瀛楀瓧娈点€嶃€?- `age_grade`銆乣apk_package_name`銆乣mini_game_play_enabled` 涓嶈兘閫氳繃鏅€氬瓧娈典繚瀛橈紱鏇夸唬璺緞瑙?[field map](references/app-edit-field-map.md)銆?- 鐗堟湰鐘舵€佷互 `get-app-version` 鐨?`logs[].event` 涓哄噯锛歚schedule_cancelled` 涓嶆槸瀹℃牳椹冲洖銆?- 鍙戝竷鎴愬姛鍚庝氦鎺ヨ繍钀ユ墜鍐岋細鐢?`list-app-versions --page-all` 璇诲畬鏁村巻鍙诧紝鎸夊叡浜€岃繍钀ラ樁娈垫墜鍐屼氦鎺ャ€嶅尯鍒嗐€岄娆′笂绾裤€嶄笌銆岄暱绾胯繍钀ャ€嶏紝姝ｆ湰瑙?[operation handbooks](../taptap-cli/references/operation-handbooks.md)銆?- 鍥剧墖鍜岃棰戜互褰撴杩斿洖鐨?`image_spec` / `video_spec` 涓哄噯锛沗trailer` 涓?`gameplay_demo_video` 涓嶈兘浣跨敤鍚屼竴涓?`videoId`銆?- 鎻愬鎰忓浘蹇呴』鍗曠嫭纭锛涘彧鏈夌敤鎴锋槑纭〃杈锯€滄彁浜ゅ鏍?/ 鎻愬鈥濆悗鎵嶅彲璋冪敤 `prepare-review-snapshot`锛岄粯璁ゅ睍绀洪瀹＄粨鏋滃悗纭鎻愪氦锛涚敤鎴锋槑纭姹傝烦杩囬妫€鎴栫户缁彁浜ゆ椂鍏佽 `submit-app-review`锛屾渶缁堢敱鏈嶅姟绔牎楠屻€傛祦绋嬭 [audit and history](references/app-edit-audit-and-history.md)銆?- 棰勬 HTTP 200 涓嶇瓑浜庝笟鍔″墠缃潯浠堕€氳繃锛涘鏈夐樆鏂師鍥犳垨椋庨櫓鎻愮ず锛屾寜鏈嶅姟绔粨鏋滃睍绀猴紝涓嶅湪瀹㈡埛绔鍔犺璇侀棬绂併€傛寮忔彁浜ゆ槑纭嫆缁濇椂璇存槑鏈嶅姟绔師鍥狅紝涓嶈嚜鍔ㄩ噸澶嶆彁浜ゆ垨鎹㈠箓绛夐敭閲嶆斁锛涚粨鏋滄湭鐭ユ椂鍏堣鍥炵姸鎬侊紝绂佹鐩茬洰閲嶈瘯銆備粎 blockers 鏄庣‘涓虹┖鏃惰鈥滈樆濉為」锛氭棤鈥濓紱`preaudit_status === "passed"` 涓旀棤闃绘柇鏃惰鈥滄彁浜ょ姸鎬侊細鍙彁浜ゅ鏍糕€濓紱`preaudit_status === "unavailable"` 琛ㄧず娌″緱鍑虹粨璁猴紝涓嶅緱璇存垚鍐呭鏈€氳繃銆備笉寰楀師鏍疯緭鍑?`Blocker`銆乣preaudit_passed=true`銆傝缁嗗睍绀哄彛寰勮 [audit and history](references/app-edit-audit-and-history.md)銆?- 鍏冲崱 / TapTap 鍒堕€犳父鎴忓湪浣撴闃舵灏卞紩瀵肩 SCE 鍗忚锛氱敤鎴锋槑纭悓鎰忓悗璋?`taptap-cli app agree-sce-agreement --yes`锛屽啀閲嶆煡纭 blocker 娑堝け銆?- 鍐欏叆鍚庢寜鍏变韩瑙勮寖浜や唬涓枃涓氬姟缁撴灉鍜屼笅涓€姝ワ紝涓嶅す甯﹀瓧娈靛悕銆佺姸鎬佺爜鎴栧懡浠ゃ€?
+## References
+
+- [level upgrade](references/app-edit-level-upgrade.md)锛氬垱鎰忓伐鍧婂崌绾ф煡璇€佺‘璁や笌 Web 浜ゆ帴銆?
+| Reference | 浠€涔堟椂鍊欒 |
+| --- | --- |
+| [skill analysis](references/app-edit-analysis.md) | 璧勬枡浣撴銆佹枃妗堝€欓€夈€佸浘鐗囧垎绫诲拰鏂扮増璧勬枡瑙勫垝銆?|
+| [field map](references/app-edit-field-map.md) | 妯″潡瀛楁銆佸彲瑙佹€с€佽仈鍔ㄣ€佸钩鍙板樊寮傚拰璇︾粏鍖呬綋妯″瀷銆?|
+| [fields and packages](references/app-edit-fields-and-packages.md) | 璧勬枡瀹屾暣搴︺€佹枃妗堛€佸浘鐗囪棰戝拰鍖呬綋妲戒綅鍐欏叆銆?|
+| [version lifecycle](references/app-edit-version-lifecycle.md) | 瀹℃牳銆佸彂甯冦€佹挙瀹°€佸畾鏃躲€侀噸缃崏绋垮墠銆?|
+| [audit and history](references/app-edit-audit-and-history.md) | 鎻愬銆丼CE 鍗忚銆佺敓鍛藉懆鏈熺粏鑺傘€佺増鏈巻鍙插拰鏁村鎺ㄨ繘銆?|
+| [review risk checklist](references/review-risk-checklist.md) | 瀛楁鎻愮ず銆佸畼鏂硅鍒欍€佸巻鍙叉嫆瀹°€佹祴璇曡瘉鎹拰鎻愬鍓嶉闄╂竻鍗曘€?|
+
+## 涓嶅湪鏈?skill 鑼冨洿
+
+node.exe : > Tip: read this skill's own files (e.g. `references/...`) with `taptap-cli skills read taptap-app-edit <rel
+ative-path>` to keep them in sync with this CLI version. A reference to another skill (`../taptap-foo/...`) uses the sa
+me command with the leading `../` removed: `taptap-cli skills read taptap-foo/...`.
+所在位置 C:\Users\11358\AppData\Roaming\npm\taptap-cli.ps1:24 字符: 5
++     & "node$exe"  "$basedir/node_modules/@taptap/cli/scripts/run.js"  ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (> Tip: read thi...aptap-foo/...`.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+- 鏂版父鎴忓垱寤鸿浆 `taptap-publish-game`锛涘寘浣撳簱鍜岃嚜娴嬭浆 `taptap-package-management`锛涙祴璇曡鍒掕浆 `taptap-test-plan`銆?- 涓婃灦璧勮川杞?`taptap-qualification`锛涘浘鐗囩礌鏉愬簱鍜屾湰鍦版ā鍨嬬敓鍥捐浆 `taptap-asset-library`銆傚巶鍟嗘垚鍛樻潈闄愪粛涓嶅湪褰撳墠 CLI 鑼冨洿銆?

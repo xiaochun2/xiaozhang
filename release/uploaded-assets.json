@@ -1,0 +1,88 @@
+{
+  "icon": {
+    "url": "https://img-tc.tapimg.com/market/images/86aef5b48db3ee4a1cb5f832509f6a26.png",
+    "info": {
+      "format": "png",
+      "height": 1024,
+      "image_ave": {
+        "rgb": "0xe0e0e0"
+      },
+      "size": 905198,
+      "width": 1024
+    }
+  },
+  "banner": {
+    "url": "https://img-tc.tapimg.com/market/images/fdef6f3749463fc2af501f99dac0cf5f.png",
+    "info": {
+      "format": "png",
+      "height": 1080,
+      "image_ave": {
+        "rgb": "0x4583c0"
+      },
+      "size": 2088776,
+      "width": 1920
+    }
+  },
+  "square": {
+    "url": "https://img-tc.tapimg.com/market/images/20412691dec08ef9d6bb9dfd37ee4c91.png",
+    "info": {
+      "format": "png",
+      "height": 1440,
+      "image_ave": {
+        "rgb": "0xe0e0e0"
+      },
+      "size": 1451343,
+      "width": 1440
+    }
+  },
+  "shots": [
+    {
+      "url": "https://img-tc.tapimg.com/market/images/b05dec3ac8b79ec674e63d5506f7b29f.png",
+      "info": {
+        "format": "png",
+        "height": 1774,
+        "image_ave": {
+          "rgb": "0xe0e0e0"
+        },
+        "size": 1555521,
+        "width": 887
+      }
+    },
+    {
+      "url": "https://img-tc.tapimg.com/market/images/49c76c7ce3e0ca7ff03b8ffae86d9df7.png",
+      "info": {
+        "format": "png",
+        "height": 1846,
+        "image_ave": {
+          "rgb": "0xe0e0e0"
+        },
+        "size": 1498839,
+        "width": 852
+      }
+    },
+    {
+      "url": "https://img-tc.tapimg.com/market/images/5e4621eea9c2882d3220bbd33f1be0d3.png",
+      "info": {
+        "format": "png",
+        "height": 1846,
+        "image_ave": {
+          "rgb": "0xe0e0e0"
+        },
+        "size": 1398340,
+        "width": 852
+      }
+    },
+    {
+      "url": "https://img-tc.tapimg.com/market/images/293f22139ee79e9f6a1178e3c4f26c1e.png",
+      "info": {
+        "format": "png",
+        "height": 1846,
+        "image_ave": {
+          "rgb": "0xe0e0e0"
+        },
+        "size": 1386362,
+        "width": 852
+      }
+    }
+  ]
+}

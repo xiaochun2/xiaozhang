@@ -1,0 +1,27 @@
+{
+  "ok": true,
+  "data": {
+    "result": {
+      "record_exists": false,
+      "requires_sms_verification": false,
+      "self_icp_pre_approval_ready": false,
+      "snapshot": "3aa729413de6c28c2bb2a8f8761c0076ab50c5869394ffaaf5d1460913ac7930"
+    },
+    "status": "completed"
+  },
+  "meta": {
+    "catalog": {
+      "source_version": "1.0.78",
+      "digest": "sha256:da5cb96c1964292a2f4da25934058f894292b833d802c7ed5b5bd8a1558a0c62",
+      "loaded_from": "embedded"
+    }
+  },
+  "_notice": {
+    "update_check": {
+      "command": "taptap-cli update --check --json",
+      "message": "Automatic update check could not complete; run: taptap-cli update --check --json",
+      "reason": "timeout",
+      "status": "unavailable"
+    }
+  }
+}

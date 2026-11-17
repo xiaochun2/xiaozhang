@@ -5,6 +5,7 @@
   if (typeof document !== "undefined") api.mount(document.getElementById("app"));
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   const UI = typeof CampusUI !== "undefined" ? CampusUI : null;
+  const Copy = typeof CampusCopy !== "undefined" ? CampusCopy : null;
   const YEARS = 14;
   const SEASONS = ["春", "夏", "秋", "冬"];
   const SAVE_KEY = "president-sim-v4";
@@ -914,6 +915,7 @@ function item(label, value, need, below) {
   }
 
   function campusBlurb(state) {
+    if (Copy && Copy.campusBlurb) return Copy.campusBlurb(state);
     const pending = campusOf(state).pending;
     if (pending) {
       const spec = buildingById(pending);
@@ -922,11 +924,17 @@ function item(label, value, need, below) {
     return "花钱盖楼。地要找政府要。今年一座，明年春天交付。";
   }
 
+  function withActionCopy(state, action) {
+    if (!Copy || !Copy.actionCopy) return action;
+    const text = Copy.actionCopy(state, action.id, action);
+    return Object.assign({}, action, { name: text.name, desc: text.desc });
+  }
+
   function actionsCatalog(state) {
     const focus = teachFocus(state);
     const cs = deptById(state, "cs").strength;
-    const apply = applyAction(state);
-    return [
+    const apply = withActionCopy(state, applyAction(state));
+    const raw = [
       { id: "build", name: "学科建设", desc: "一年只建一个系。点到的厚，旁边有的系会薄。", cost: 8, once: true },
       { id: "campus", name: "基建", desc: campusBlurb(state), cost: 0, once: true },
       { id: "recruit", name: "引进人才", desc: "出身和擅长决定拉动哪一项。学校越高，好出身越多，拉动越大。贪的来做副教授。", cost: 14, once: false },
@@ -940,6 +948,11 @@ function item(label, value, need, below) {
       { id: "project", name: "报课题", desc: state.tier < 1 ? "升本之后才能报。可能失败。" : "占一季。要强系、楼和牵头人。成了留下一个有名字的成果，败了人和钱都伤。", cost: 0, once: true, disabled: state.tier < 1 },
       apply
     ];
+    return raw.map(function (a) {
+      if (a.id === "apply") return a;
+      if (a.id === "campus") return withActionCopy(state, Object.assign({}, a, { desc: campusBlurb(state) }));
+      return withActionCopy(state, a);
+    });
   }
 
   function perform(state, id, arg) {
@@ -947,11 +960,13 @@ function item(label, value, need, below) {
     if (!spec || spec.disabled) return;
     if (!spec.free && state.actionsLeft <= 0) return;
     if (spec.once && state.used[id]) {
-      openQueue(state, [scene("今年做过了", "同一件事一年只办一次。", cont("返回"))]);
+      const usedCopy = Copy && Copy.gateCopy ? Copy.gateCopy("used") : { title: "今年做过了", body: "同一件事一年只办一次。" };
+      openQueue(state, [scene(usedCopy.title, usedCopy.body, cont("返回"))]);
       return;
     }
     if (state.funds < spec.cost) {
-      openQueue(state, [scene("经费不够", "账上盖不住这次开支。先去募捐，或者换一件事。", cont("返回"))]);
+      const fundCopy = Copy && Copy.gateCopy ? Copy.gateCopy("funds") : { title: "经费不够", body: "账上盖不住这次开支。先去募捐，或者换一件事。" };
+      openQueue(state, [scene(fundCopy.title, fundCopy.body, cont("返回"))]);
       return;
     }
     if ((id === "build" || id === "recruit" || id === "project") && !arg) {
@@ -1009,13 +1024,19 @@ function item(label, value, need, below) {
   }
 
   function deptPick(state, action) {
+    const pack = Copy && Copy.deptPickCopy
+      ? Copy.deptPickCopy(action, state.tier)
+      : {
+        title: action === "build" ? "建设哪个系" : action === "project" ? "课题挂在哪个系" : "人才引进到哪个系",
+        body: action === "build"
+          ? "每个系影响的东西不一样。理学卡升格，计算机拉排名，经管出钱，医学太弱会被点名，文法会把舆论放大。系过了 60，同样的名额加得少。"
+          : action === "project"
+            ? "要这个系够强，还要实验楼或实训楼，以及一位能牵头的人。可能失败。"
+            : recruitOddsLine(state.tier) + "擅长科研抬学术，上课抬教学，国际抬国际影响，招生抬报考，学工抬风纪。"
+      };
     return scene(
-      action === "build" ? "建设哪个系" : action === "project" ? "课题挂在哪个系" : "人才引进到哪个系",
-      action === "build"
-        ? "每个系影响的东西不一样。理学卡升格，计算机拉排名，经管出钱，医学太弱会被点名，文法会把舆论放大。系过了 60，同样的名额加得少。"
-        : action === "project"
-          ? "要这个系够强，还要实验楼或实训楼，以及一位能牵头的人。可能失败。"
-          : recruitOddsLine(state.tier) + "擅长科研抬学术，上课抬教学，国际抬国际影响，招生抬报考，学工抬风纪。",
+      pack.title,
+      pack.body,
       state.depts.map((d) => {
         const meta = DEPTS.find((x) => x.id === d.id);
         const empty = deptTeachers(state, d.id).length ? "" : " · 没有带头人";
@@ -1060,9 +1081,10 @@ function doBuild(state, deptId) {
     sync(state);
     const thin = gain < 8 ? "这个系已经不薄，同样的名额只加了 " + gain + "。" : "";
     finishAction(state, scene(
-      meta.name + "动起来了",
-      "一年只有一个名额。这一次 +" + gain + "。" + (cheap ? "调整名单退回 " + wan(4) + "。" : "") + thin + "没排上的系没人管：" + dropped.join("，") + "。",
-      cont()
+      meta.name + "的建设名额落地了",
+      "教务处把名额写进了" + meta.name + "。这一次 +" + gain + "。" + (cheap ? "调整名单退回 " + wan(4) + "。" : "") + thin + "没排上的系只能先自己扛：" + dropped.join("，") + "。",
+      cont(),
+      { kind: "result" }
     ));
   }
 
@@ -1098,11 +1120,12 @@ function doBuild(state, deptId) {
     }
     sync(state);
     finishAction(state, scene(
-      greedy ? "副教授来了，账不好看" : "引进了一位讲师",
+      greedy ? "副教授来了，账要更小心" : "新讲师走进了办公室",
       greedy
-        ? who + "以副教授进了" + meta.name + "。" + moved + audit + "教授要以后评。"
-        : who + "以讲师进了" + meta.name + "。" + moved + "没有留下不好审计的账。",
-      cont()
+        ? "人事处办完手续：" + who + "以副教授进了" + meta.name + "。" + moved + audit + "教授职称以后再评。"
+        : "人事处办完手续：" + who + "以讲师进了" + meta.name + "。" + moved + "材料干净，没有留下不好审计的账。",
+      cont(),
+      { kind: "result" }
     ));
   }
 
@@ -1191,9 +1214,14 @@ function doBuild(state, deptId) {
     addStat(state, "reputation", 2);
     note(state, "一批联培和学生交换写进了年鉴。");
     sync(state);
-    finishAction(state, scene("榜单会看见这一笔", cs >= 50
-      ? "计算机的合作方肯署名，国际影响抬得比较扎实。"
-      : "协议签了。计算机还不够强的时候，这种合作更像访问，不太像成果。", cont()));
+    finishAction(state, scene(
+      "国际处把协议收进档案",
+      cs >= 50
+        ? "计算机的合作方肯署名，国际影响抬得比较扎实。年鉴里会多写一笔。"
+        : "协议签了。计算机还不够强时，这种合作更像访问，榜单上未必显眼。",
+      cont(),
+      { kind: "result" }
+    ));
   }
 
   function doDonate(state) {
@@ -1208,9 +1236,10 @@ function doBuild(state, deptId) {
     note(state, "校友这一年进来 " + wan(money) + "。" + (state.policy === "tight" ? "拨款收紧，这笔比往常少。" : "") + weakName + "薄了 4。");
     sync(state);
     finishAction(state, scene(
-      "钱是干净的",
-      "经管越强，这份名单越好看。没有信封。这一年少做的那件事，落在最短的" + weakName + "上。",
-      cont()
+      "校友办送来回执",
+      "钱是干净的，没有信封。经管越强，名单越好看。这一年少顾上的，落在最短的" + weakName + "上。",
+      cont(),
+      { kind: "result" }
     ));
   }
 
@@ -1233,14 +1262,24 @@ function doBuild(state, deptId) {
       addStat(state, "reputation", 2);
       note(state, "教学评估过了一轮。学术没有动。");
       sync(state);
-      finishAction(state, scene("课堂被看过了", "教学抬了一截。升本看的就是这个。学术这一栏不动。", cont()));
+      finishAction(state, scene(
+        "评建办收回了听课表",
+        "课堂被看过一轮，教学抬了一截。升本最看这一栏。学术这一栏不动。",
+        cont(),
+        { kind: "result" }
+      ));
       return;
     }
     if (focus.id === "sci") bumpDept(state, "sci", 5);
     else addStat(state, focus.id, focus.id === "international" ? 5 : 6);
     note(state, "评估改去补" + focus.label + "。教学没有动。");
     sync(state);
-    finishAction(state, scene("评估改了方向", focus.label + "抬了一截。教学这一栏不动。", cont()));
+    finishAction(state, scene(
+      "评估临时改了方向",
+      "短板在" + focus.label + "，评建办先补这里。" + focus.label + "抬了一截。教学这一栏不动。",
+      cont(),
+      { kind: "result" }
+    ));
   }
 
   function doInspect(state) {
@@ -1541,6 +1580,10 @@ function doBuild(state, deptId) {
   }
 
   function doApply(state) {
+    if (state.scene) {
+      // 已有办事抉择时不覆盖，避免 pending 被申报 CTA 冲掉
+      return;
+    }
     if (state.applyBlockYear === state.year) {
       openQueue(state, [scene("今年不能申报", "机电校并进来的下一年，材料先不收。", cont("返回"), { abortAction: true })]);
       return;
@@ -1587,7 +1630,7 @@ function doBuild(state, deptId) {
     note(state, "学校升到「" + TIERS[state.tier].name + "」。" + prize.lines.join("，") + "。");
     sync(state);
     const title = state.tier === 2 ? "进入 212 这一档" : state.tier === 3 ? "进入 986 这一档" : "进入 D9";
-    finishAction(state, scene(title, prize.grant + "省里按这一档送评。" + prize.lines.join("，") + "。把柄没有洗掉。", cont()));
+    finishAction(state, scene(title, prize.grant + "省里按这一档送评。" + prize.lines.join("，") + "。把柄没有洗掉。", cont(), { kind: "result" }));
   }
 
   function commitBachelor(state, track) {
@@ -1613,7 +1656,7 @@ function doBuild(state, deptId) {
       addStat(state, "enrollment", 4);
       note(state, "学校升成普通本科。经费 +180万，报考 +4。");
       sync(state);
-      finishAction(state, scene("升成普通本科", "省里按本科拨了一笔开办费。经费 +180万，报考 +4。后面可以申报 212。把柄没有洗掉。", cont()));
+      finishAction(state, scene("升成普通本科", "省里按本科拨了一笔开办费。经费 +180万，报考 +4。后面可以申报 212。把柄没有洗掉。", cont(), { kind: "result" }));
       return;
     }
     const eng = deptById(state, "eng").strength;
@@ -1627,7 +1670,8 @@ function doBuild(state, deptId) {
     finishAction(state, scene(
       "升成职业本科",
       "校名换成职业技术大学。这一档到头了，212、986、D9 的材料以后不再收。后面是专业硕士点，和一次整合。" + deptName(focus) + " +4，经费 +120万，报考 +6。",
-      cont()
+      cont(),
+      { kind: "result" }
     ));
   }
 
@@ -1654,7 +1698,8 @@ function doBuild(state, deptId) {
     finishAction(state, scene(
       deptName(deptId) + "的专业硕士点过了",
       "这不是 212。系 +4，声誉 +6，报考 +4。以后每年多 30万。点还剩 " + (2 - state.masterPoints.length) + " 个。",
-      cont()
+      cont(),
+      { kind: "result" }
     ));
   }
 
@@ -1662,12 +1707,17 @@ function doBuild(state, deptId) {
     const pending = campusOf(state).pending;
     if (pending) {
       const spec = buildingById(pending);
-      openQueue(state, [scene("有一座还没交付", (spec ? spec.name : "那座楼") + "明年春天才能用。今年不能再开工。", cont("返回"), { abortAction: true })]);
+      openQueue(state, [scene(
+        "工地还没交出来",
+        "后勤处说，" + (spec ? spec.name : "那座楼") + "要明年春天才能用。今年先别再开工。",
+        cont("返回"),
+        { abortAction: true }
+      )]);
       return;
     }
     openQueue(state, [scene(
-      "盖哪一座",
-      "当季出钱开工，明年春天交付。占地要找政府批，学校自己的钱买不来亩数。",
+      "这一座盖什么",
+      "后勤处把图纸摊开：当季出钱开工，明年春天交付。占地要找政府批，学校自己的钱买不来亩数。",
       BUILDINGS.map(function (b) {
         let detail = wan(b.cost) + "。" + b.detail;
         if (b.academic && !(state.track === "academic" && state.tier >= 1)) detail = "普通本科之后才能建";
@@ -3660,6 +3710,7 @@ function resolveHelp(state, teacher, ask) {
   }
 
   function seasonGreeting(state) {
+    if (Copy && Copy.greeting) return Copy.greeting(state);
     const s = seasonName(state);
     if (s === "夏") return { title: "校长，夏天好！", body: "校园正热闹，抓紧这一季把人带起来。" };
     if (s === "秋") return { title: "校长，秋天好！", body: "收成的季节，把师资和账本看仔细。" };
@@ -3680,33 +3731,47 @@ function resolveHelp(state, teacher, ask) {
 
   function renderIntro(state) {
     const saved = loadRaw();
-    return '<div class="shell intro">' + appBar("一届任期 · 十四年") +
-      '<section class="intro-hero"><div class="copy"><p class="eyebrow">校园经营</p><h1>从一所大专开始</h1>' +
+    const origins = [
+      ["old", "老专科", "工学和经管有一点底，账上是寻常的一笔。", "school"],
+      ["trade", "行业学校", "工学和医学更高。硕博师资少，经费更紧。", "build"],
+      ["college", "备升本的学院", "理学和教学高一点。桌上有一份旧材料，风险不是从零开始。", "apply"]
+    ];
+    return '<div class="shell intro intro-page">' +
+      '<header class="intro-brand"><span class="intro-brand__mark">' + icon("cap", { size: 22 }) + '</span>' +
+      '<div><b>校长模拟器</b><small>一届任期 · 十四年</small></div></header>' +
+      '<section class="intro-hero">' +
+      '<div class="intro-hero__bg">' + (heroArt("home") || campusArt(false)) + '</div>' +
+      '<div class="intro-hero__copy"><p class="eyebrow">校园经营</p><h1>从一所大专开始</h1>' +
       '<p class="lede">升本先选路：普通本科可到 212、986、D9；职业本科升完封顶。一年四季，一季一件事。</p></div>' +
-      (heroArt("principal") || campusArt(false)) + '</section>' +
-      '<section class="card"><h2>这一局怎么走</h2><ul class="rules">' +
-      '<li><strong>升档</strong>看路线。普通本科看理学、硕博师资、实验楼和图书馆。职业本科看工学或计算机、双师、实训楼和产教基地。两条路都要占地、宿舍，还要没有实名举报。</li>' +
-      '<li><strong>过问</strong>募捐、办公会、找政府、学生事务不占这一季，一年各一次。办了也有代价。</li>' +
-      '<li><strong>评审</strong>逢双年必开。同一个系里看成果、看谁夹着信封、看谁握有把柄，名额只有一个。</li>' +
-      '<li><strong>把柄</strong>来自你收过的钱。帮，系会变强，风险也在；不帮，他可能离职，也可能举报。</li>' +
-      '<li><strong>报考</strong>经管和医学抬热度，短板和举报往下压。热度不够，升本和 212 的材料递不出去。地和楼不够，材料同样递不出去。</li>' +
+      '<div class="intro-hero__art">' + (heroArt("principal") || "") + '</div></section>' +
+      '<section class="campus-card intro-panel">' +
+      '<div class="intro-panel__head">' + icon("book", { size: 18 }) + '<h2>这一局怎么走</h2></div>' +
+      '<ul class="intro-rules">' +
+      '<li><span class="intro-rules__ico">' + icon("apply", { size: 16 }) + '</span><div><strong>升档</strong>看路线。普通本科看理学、硕博师资、实验楼和图书馆。职业本科看工学或计算机、双师、实训楼和产教基地。两条路都要占地、宿舍，还要没有实名举报。</div></li>' +
+      '<li><span class="intro-rules__ico">' + icon("office", { size: 16 }) + '</span><div><strong>过问</strong>募捐、办公会、找政府、学生事务不占这一季，一年各一次。办了也有代价。</div></li>' +
+      '<li><span class="intro-rules__ico">' + icon("teachers", { size: 16 }) + '</span><div><strong>评审</strong>逢双年必开。同一个系里看成果、看谁夹着信封、看谁握有把柄，名额只有一个。</div></li>' +
+      '<li><span class="intro-rules__ico">' + icon("inspect", { size: 16 }) + '</span><div><strong>把柄</strong>来自你收过的钱。帮，系会变强，风险也在；不帮，他可能离职，也可能举报。</div></li>' +
+      '<li><span class="intro-rules__ico">' + icon("students", { size: 16 }) + '</span><div><strong>报考</strong>经管和医学抬热度，短板和举报往下压。热度不够，升本和 212 的材料递不出去。地和楼不够，材料同样递不出去。</div></li>' +
       '</ul></section>' +
-      '<p class="eyebrow">这一所学校</p>' +
-      '<div class="origins">' +
-      '<button type="button" data-act="origin" data-arg="old"' + (origin === "old" ? ' class="on"' : '') + '><b>老专科</b><small>工学和经管有一点底，账上是寻常的一笔。</small></button>' +
-      '<button type="button" data-act="origin" data-arg="trade"' + (origin === "trade" ? ' class="on"' : '') + '><b>行业学校</b><small>工学和医学更高。硕博师资少，经费更紧。</small></button>' +
-      '<button type="button" data-act="origin" data-arg="college"' + (origin === "college" ? ' class="on"' : '') + '><b>备升本的学院</b><small>理学和教学高一点。桌上有一份旧材料，风险不是从零开始。</small></button>' +
-      '</div>' +
+      '<section class="campus-card intro-panel">' +
+      '<div class="intro-panel__head">' + icon("school", { size: 18 }) + '<h2>这一所学校</h2></div>' +
+      '<div class="intro-origins">' + origins.map(function (item) {
+        const on = origin === item[0];
+        return '<button type="button" class="intro-origin' + (on ? " is-on" : "") + '" data-act="origin" data-arg="' + item[0] + '">' +
+          '<span class="intro-origin__ico">' + icon(item[3], { size: 20 }) + '</span>' +
+          '<span class="intro-origin__copy"><b>' + item[1] + '</b><small>' + item[2] + '</small></span></button>';
+      }).join("") + '</div></section>' +
+      '<section class="campus-card intro-panel intro-name">' +
       '<label for="school">学校的名字</label>' +
-      '<input id="school" type="text" maxlength="12" value="江湾" />' +
-      '<div class="choices">' +
+      '<input id="school" type="text" maxlength="12" value="江湾" /></section>' +
+      '<div class="intro-actions">' +
       (UI
         ? UI.button({ variant: "primary", label: "开始任期", attrs: { "data-act": "start" } })
-        : '<button class="primary" data-act="start">开始任期</button>') +
+        : '<button class="primary campus-btn campus-btn--primary" data-act="start">开始任期</button>') +
       (saved
         ? (UI
           ? UI.button({ variant: "secondary", label: "继续上一届", block: true, attrs: { "data-act": "continue" } })
-          : '<button data-act="continue">继续上一届</button>')
+          : '<button class="campus-btn campus-btn--secondary campus-btn--block" data-act="continue">继续上一届</button>')
         : '') +
       '</div></div>';
   }
@@ -3764,8 +3829,12 @@ function resolveHelp(state, teacher, ask) {
 
   function topBar(state) {
     if (screen === "do" && state.scene) {
-      const title = state.scene.kind === "bulletin" ? "本年总结" : "要你拍板";
-      return '<header class="top"><b>' + title + '</b>' + resourceChips(state) + '</header>';
+      const title = state.scene.kind === "bulletin"
+        ? "本年总结"
+        : (state.scene.kind === "result" ? "申报结果" : "要你拍板");
+      return '<header class="top top--spring scene-top">' +
+        '<div class="brand"><b>' + title + '</b><small>' + esc(state.schoolName) + '</small></div>' +
+        resourceChips(state) + '</header>';
     }
     if (screen === "do") {
       return '<header class="top top--ghost top--do" aria-hidden="true"></header>';
@@ -3793,7 +3862,13 @@ function resolveHelp(state, teacher, ask) {
 
   function pendingBanner(state) {
     if (!state.scene || screen === "do") return "";
-    return '<button class="pending" data-act="tab" data-arg="do">有一件事等你拍板</button>';
+    const ban = Copy && Copy.pendingBannerCopy
+      ? Copy.pendingBannerCopy()
+      : { title: "有一件事等你拍板", body: "先回办事页处理" };
+    return '<button type="button" class="pending campus-pending" data-act="tab" data-arg="do">' +
+      '<span class="campus-pending__ico">' + icon("tasks", { size: 18 }) + '</span>' +
+      '<span class="campus-pending__copy"><b>' + esc(ban.title) + '</b><small>' + esc(ban.body) + '</small></span>' +
+      '<span class="campus-pending__go" aria-hidden="true">›</span></button>';
   }
 
   function coreStats(state) {
@@ -3829,7 +3904,9 @@ function resolveHelp(state, teacher, ask) {
       const current = bucket.year === state.year;
       const notes = bucket.notes && bucket.notes.length
         ? bucket.notes
-        : (current ? ["这一年还在开篇，董事会刚把印交过来。"] : ["这一年没有留下备忘。"]);
+        : (current
+          ? ["这一年刚开篇。校园备忘本还是新的，董事会刚把印交过来。"]
+          : ["这一年档案夹很薄，没有留下新的备忘。"]);
       notes.forEach(function (line) {
         rows.push({
           year: bucket.year,
@@ -3838,9 +3915,11 @@ function resolveHelp(state, teacher, ask) {
         });
       });
     });
+    const sec = Copy && Copy.sectionCopy ? Copy.sectionCopy() : null;
     return '<section class="campus-card card soft do-events">' +
       '<div class="card-head do-section__head">' + icon("calendar", { size: 16 }) +
-      '<h2>每年做的事情</h2><span class="meta">按年备忘</span></div>' +
+      '<h2>' + ((sec && sec.chronicleTitle) || "每年做的事情") + '</h2><span class="meta">' +
+      ((sec && sec.chronicleMeta) || "按年备忘") + '</span></div>' +
       '<ul class="do-events__list">' + rows.map(function (row) {
         return '<li class="do-events__item' + (row.current ? " is-now" : "") + '">' +
           '<span class="do-events__year">第' + row.year + '年</span>' +
@@ -3887,9 +3966,16 @@ function resolveHelp(state, teacher, ask) {
   }
 
   function glanceLine(state) {
-    const nums = "评分 " + state.score + " · 经费 " + wan(state.funds) + " · 报考 " + (state.enrollment || 0) + " · 风纪 " + state.compliance;
-    const depts = state.depts.map((d) => deptName(d.id) + " " + d.strength).join(" · ");
-    return '<p class="glance">' + nums + " · " + depts + "</p>";
+    const chips = [
+      ["star", "评分 " + state.score],
+      ["coin", "经费 " + wan(state.funds)],
+      ["students", "报考 " + (state.enrollment || 0)],
+      ["shield", "风纪 " + state.compliance]
+    ];
+    const depts = state.depts.map(function (d) { return deptName(d.id) + " " + d.strength; }).join(" · ");
+    return '<div class="scene-glance">' + chips.map(function (c) {
+      return '<span class="scene-glance__chip">' + icon(c[0], { size: 14 }) + esc(c[1]) + '</span>';
+    }).join("") + '</div><p class="scene-glance__depts">' + esc(depts) + '</p>';
   }
 
   function powerBlock(state) {
@@ -3925,15 +4011,18 @@ function resolveHelp(state, teacher, ask) {
 
   function doPaneBody(state, season, inquiry) {
     if (doPane === "results" || doPane === "year") return yearResultsPane(state);
+    const sec = Copy && Copy.sectionCopy ? Copy.sectionCopy() : null;
     if (doPane === "inquiry") {
       return '<section class="campus-card card soft do-section">' +
         '<div class="card-head do-section__head">' + icon("office", { size: 18 }) +
-        '<h2>今年过问</h2><span class="meta">不占本季</span></div>' +
+        '<h2>' + ((sec && sec.inquiryTitle) || "今年过问") + '</h2><span class="meta">' +
+        ((sec && sec.inquiryMeta) || "不占本季") + '</span></div>' +
         inquiryGrid(state, inquiry) + '</section>';
     }
     return '<section class="campus-card card soft do-section do-section--tasks">' +
       '<div class="card-head do-section__head">' + icon("tasks", { size: 18 }) +
-      '<h2>待办事项</h2><span class="meta">这一季</span></div>' +
+      '<h2>' + ((sec && sec.tasksTitle) || "待办事项") + '</h2><span class="meta">' +
+      ((sec && sec.tasksMeta) || "这一季") + '</span></div>' +
       taskCards(state, season) + '</section>';
   }
 
@@ -3982,12 +4071,22 @@ function resolveHelp(state, teacher, ask) {
   function doSheet(state) {
     if (state.scene && state.scene.kind === "bulletin") return bulletinSheet(state);
     if (state.scene) {
-      const body = decisionHead(state) + glanceLine(state);
-      const visual = heroArt("gate") || campusArt(false);
-      return (UI
-        ? UI.eventCard({ visualHtml: visual, bodyHtml: body })
-        : '<section class="event-card"><div class="event-visual">' + visual + '</div><div class="event-body">' + body + '</div></section>') +
-        decisionButtons(state);
+      const sec = Copy && Copy.sectionCopy ? Copy.sectionCopy() : null;
+      const eyebrow = state.scene.kind === "result"
+        ? ((sec && sec.resultEyebrow) || "事情有了下文")
+        : ((sec && sec.sceneEyebrow) || "要你拍板");
+      return '<div class="scene-page">' +
+        '<section class="scene-hero">' +
+        '<div class="scene-hero__bg">' + (heroArt("gate") || campusArt(false)) + '</div>' +
+        '<div class="scene-hero__fg"><p class="eyebrow">' + esc(eyebrow) + '</p><h1>' + esc(state.scene.title) + '</h1></div></section>' +
+        '<section class="campus-card scene-body">' +
+        '<p class="lede">' + esc(state.scene.body) + '</p>' + glanceLine(state) + '</section>' +
+        (state.scene.lines
+          ? '<section class="campus-card scene-reason"><div class="scene-reason__head">' + icon("book", { size: 16 }) +
+            '<b>这一年动过的数</b></div><ul class="log">' +
+            state.scene.lines.map(function (line) { return '<li>' + esc(line) + '</li>'; }).join("") + '</ul></section>'
+          : '') +
+        decisionButtons(state) + '</div>';
     }
     const list = actionsCatalog(state);
     const season = list.filter(function (a) { return !a.free; });
@@ -4038,7 +4137,10 @@ function resolveHelp(state, teacher, ask) {
   }
 
   function schoolTabs() {
-    const panes = [["overview", "概况"], ["build", "建设"], ["depts", "学科"]];
+    const labels = Copy && Copy.schoolCopy
+      ? Copy.schoolCopy({}).tabs
+      : { overview: "概况", build: "建设", depts: "学科" };
+    const panes = [["overview", labels.overview], ["build", labels.build], ["depts", labels.depts]];
     return '<div class="seg-tabs school-tabs" role="tablist">' + panes.map(function (p) {
       const on = schoolPane === p[0];
       return '<button type="button" role="tab" class="' + (on ? "on is-on" : "") +
@@ -4072,10 +4174,12 @@ function resolveHelp(state, teacher, ask) {
       ["build", "占地", campus.mu + " 亩"],
       ["mail", "省里的文", policyName(state)]
     ];
+    const sc = Copy && Copy.schoolCopy ? Copy.schoolCopy(state) : null;
     return '<div class="school-ladder">' + ladderHtml(state) + '</div>' +
       '<section class="campus-card card soft school-overview">' +
       '<div class="school-overview__head">' + icon("reward", { size: 18 }) +
-      '<h2>学校概况</h2><span class="school-overview__link">综合实力 ›</span></div>' +
+      '<h2>' + esc(sc ? sc.overviewTitle : "学校概况") + '</h2>' +
+      '<span class="school-overview__link">' + esc(sc ? sc.overviewLink : "综合实力 ›") + '</span></div>' +
       powerBlock(state) +
       '<div class="school-facts">' + facts.map(function (f) {
         return '<div class="school-fact"><span class="school-fact__ico">' + icon(f[0], { size: 16 }) +
@@ -4089,17 +4193,24 @@ function resolveHelp(state, teacher, ask) {
     const pending = campus.pending ? buildingById(campus.pending) : null;
     const built = BUILDINGS.filter(function (b) { return buildingCount(state, b.id) > 0; })
       .map(function (b) { return b.name + " ×" + buildingCount(state, b.id); });
+    const sc = Copy && Copy.schoolCopy ? Copy.schoolCopy(state) : null;
+    const meta = pending
+      ? (sc ? sc.buildMetaPending(pending.name) : ("在建：" + pending.name))
+      : (sc ? sc.buildMetaIdle : "暂无在建");
+    const note = built.length
+      ? built.join(" · ")
+      : (sc ? sc.buildNoteEmpty : "教学楼和宿舍各有一座。");
     return '<section class="campus-card card soft school-section">' +
-      '<div class="card-head school-section__head"><h2>校园建设</h2><span class="meta">' +
-      (pending ? ("在建：" + esc(pending.name)) : "暂无在建") + '</span></div>' +
+      '<div class="card-head school-section__head"><h2>' + esc(sc ? sc.buildTitle : "校园建设") + '</h2><span class="meta">' +
+      esc(meta) + '</span></div>' +
       campusBuildingGrid(state) +
-      '<p class="meta school-section__note">' +
-      (built.length ? esc(built.join(" · ")) : "教学楼和宿舍各有一座。") + '</p></section>';
+      '<p class="meta school-section__note">' + esc(note) + '</p></section>';
   }
 
   function schoolDeptsPane(state) {
+    const sc = Copy && Copy.schoolCopy ? Copy.schoolCopy(state) : null;
     return '<section class="campus-card card soft school-section">' +
-      '<div class="card-head school-section__head"><h2>六个系</h2></div>' +
+      '<div class="card-head school-section__head"><h2>' + esc(sc ? sc.deptsTitle : "六个系") + '</h2></div>' +
       '<div class="depts school-depts">' +
       state.depts.map(function (d, i) {
         return '<div class="school-dept tone-' + (i % 6) + '">' + deptHtml(state, d, true) + '</div>';
@@ -4108,6 +4219,7 @@ function resolveHelp(state, teacher, ask) {
 
   function schoolSheet(state) {
     const review = state.year % 2 === 0 ? " · 年终评审" : "";
+    const sc = Copy && Copy.schoolCopy ? Copy.schoolCopy(state) : null;
     let body = schoolOverviewPane(state);
     if (schoolPane === "build") body = schoolBuildPane(state);
     if (schoolPane === "depts") body = schoolDeptsPane(state);
@@ -4118,7 +4230,9 @@ function resolveHelp(state, teacher, ask) {
       '<span class="school-hero__badge">' + tierLabel(state) + review + '</span>' +
       '<h2>' + esc(state.schoolName) + '</h2>' +
       '<p class="meta">第 ' + state.year + ' 年 · ' + seasonName(state) +
-      (state.lastJobs ? ' · 去年就业：' + esc(state.lastJobs) : '') + '</p></div></section>' +
+      (state.lastJobs ? ' · 去年就业：' + esc(state.lastJobs) : '') + '</p>' +
+      (sc && sc.heroStatus ? '<p class="lede school-hero__status">' + esc(sc.heroStatus) + '</p>' : '') +
+      '</div></section>' +
       schoolTabs() +
       '<div class="school-panel">' + body + '</div>';
   }
@@ -4138,6 +4252,7 @@ function resolveHelp(state, teacher, ask) {
   }
 
   function peopleSchoolBar(state) {
+    const pc = Copy && Copy.peopleCopy ? Copy.peopleCopy(state) : null;
     return '<section class="people-head">' +
       '<div class="people-head__sky" aria-hidden="true">' + (heroArt("home") || campusArt(true)) + '</div>' +
       '<div class="people-head__top">' +
@@ -4145,17 +4260,20 @@ function resolveHelp(state, teacher, ask) {
       principalAvatarChip() +
       '<div class="people-head__copy"><b>' + esc(state.schoolName) + '</b>' +
       '<small>第 ' + state.year + ' 年 · ' + seasonName(state) + '学期 · ' + tierLabel(state) + '</small>' +
-      '<p class="people-head__motto">优秀教师是学校发展的基石</p></div></div>' +
+      '<p class="people-head__motto">' + esc(pc ? pc.motto : "优秀教师是学校发展的基石") + '</p></div></div>' +
       peopleResourceChips(state) +
       '</div></section>';
   }
 
   function peoplePaneTabs() {
+    const labels = Copy && Copy.peopleCopy
+      ? Copy.peopleCopy({}).tabs
+      : { overview: "教师", hire: "招聘", train: "培养", assess: "考核" };
     const panes = [
-      ["overview", "教师", "teachers"],
-      ["hire", "招聘", "search"],
-      ["train", "培养", "education"],
-      ["assess", "考核", "assess"]
+      ["overview", labels.overview, "teachers"],
+      ["hire", labels.hire, "search"],
+      ["train", labels.train, "education"],
+      ["assess", labels.assess, "assess"]
     ];
     return '<div class="people-icon-tabs people-pane-tabs" role="tablist">' + panes.map(function (p) {
       const on = peoplePane === p[0];
@@ -4224,15 +4342,17 @@ function resolveHelp(state, teacher, ask) {
 
   function peopleStatsCard(state) {
     const m = peopleTeamMetrics(state);
+    const pc = Copy && Copy.peopleCopy ? Copy.peopleCopy(state) : null;
     const cells = [
       [icon("teachers", { size: 18 }), "专任教师", m.total + " 人", "tone-blue"],
       [icon("education", { size: 18 }), "高级职称", m.senior + " 人", "tone-sky"],
       [icon("education", { size: 18 }), "博士学历", m.phd + " 人", "tone-warm"],
       [icon("star", { tone: "gold", size: 18 }), "平均忠诚", String(m.avgLoyalty), "tone-pink"]
     ];
+    const link = pc && pc.statsLink ? pc.statsLink(m.total) : ("共 " + m.total + " 人");
     return '<section class="campus-card people-stats-card">' +
-      '<div class="campus-card__head"><h2>教师总览</h2>' +
-      '<button type="button" class="people-linkish" data-act="filter-toggle">共 ' + m.total + ' 人 ' +
+      '<div class="campus-card__head"><h2>' + esc(pc ? pc.statsTitle : "教师总览") + '</h2>' +
+      '<button type="button" class="people-linkish" data-act="filter-toggle">' + esc(link) + " " +
       icon("go", { size: 16 }) + "</button></div>" +
       '<div class="people-stats-grid people-stats-grid--ref">' + cells.map(function (cell) {
         return '<div class="people-mini-stat ' + cell[3] + '"><span class="people-mini-stat__ico">' + cell[0] +
@@ -4242,6 +4362,7 @@ function resolveHelp(state, teacher, ask) {
 
   function peopleStructureCard(state) {
     const m = peopleTeamMetrics(state);
+    const pc = Copy && Copy.peopleCopy ? Copy.peopleCopy(state) : null;
     const order = [3, 2, 1, 0];
     const colors = ["#f5c9d0", "#f2ae65", "#80c6a5", "#6398df"];
     const legend = '<ul class="people-rank-legend">' + order.map(function (i) {
@@ -4251,7 +4372,8 @@ function resolveHelp(state, teacher, ask) {
         '<span>' + n + ' 人</span><em>' + pct + '%</em></li>';
     }).join("") + '</ul>';
     return '<section class="campus-card people-structure-card">' +
-      '<div class="campus-card__head"><h2>教师队伍结构</h2><span class="meta">职称占比</span></div>' +
+      '<div class="campus-card__head"><h2>' + esc(pc ? pc.structureTitle : "教师队伍结构") + '</h2>' +
+      '<span class="meta">' + esc(pc ? pc.structureMeta : "职称占比") + '</span></div>' +
       '<div class="people-structure-body">' +
       peopleDonut(m) +
       legend +
@@ -4261,10 +4383,11 @@ function resolveHelp(state, teacher, ask) {
 
   function peopleRosterCard(state) {
     const showFilters = peopleFilterOpen || peopleFilter !== "all";
+    const pc = Copy && Copy.peopleCopy ? Copy.peopleCopy(state) : null;
     return '<section class="campus-card people people-list">' +
-      '<div class="campus-card__head"><h2>教师列表</h2>' +
+      '<div class="campus-card__head"><h2>' + esc(pc ? pc.rosterTitle : "教师列表") + '</h2>' +
       '<button type="button" class="people-filter-btn" data-act="filter-toggle">' + icon("filter", { size: 16 }) +
-      " 筛选</button></div>" +
+      " " + esc(pc ? pc.filterLabel : "筛选") + "</button></div>" +
       (showFilters ? rankFilters() : "") +
       facultyHtml(state) + "</section>";
   }
@@ -4277,19 +4400,29 @@ function resolveHelp(state, teacher, ask) {
 
   function peopleHirePane(state) {
     const canHire = !state.scene && state.actionsLeft > 0 && state.funds >= 14;
+    const pc = Copy && Copy.peopleCopy ? Copy.peopleCopy(state) : null;
+    const odds = Copy && Copy.recruitOddsCopy
+      ? Copy.recruitOddsCopy(state.tier)
+      : recruitOddsLine(state.tier);
+    const hireLabel = pc ? pc.hireCta : "开始招聘";
     const hireBtn = UI
       ? UI.button({
         variant: "primary",
-        label: "开始招聘",
+        label: hireLabel,
         cost: wan(14),
         disabled: !canHire,
         attrs: { "data-act": "action", "data-arg": "recruit" }
       })
-      : '<button class="primary" data-act="action" data-arg="recruit"' + (canHire ? "" : " disabled") + '>开始招聘<em>' + wan(14) + '</em></button>';
+      : '<button class="primary" data-act="action" data-arg="recruit"' + (canHire ? "" : " disabled") + '>' +
+        esc(hireLabel) + '<em>' + wan(14) + '</em></button>';
+    const body = pc && pc.hireBody
+      ? pc.hireBody(odds)
+      : (odds + " 花费 " + wan(14) + "，占用本季一次行动。先选系，再引进。");
     return '<section class="campus-card campus-card--soft people-hire-pane">' +
-      '<div class="campus-card__head"><h2>人才招聘</h2><span class="meta">现有规则</span></div>' +
-      '<p class="lede">' + esc(recruitOddsLine(state.tier)) + '</p>' +
-      '<p class="meta">花费 ' + wan(14) + '，占用本季一次行动。先选系，再引进。出身和擅长会拉动对应指标；贪的人可能带来把柄风险。</p>' +
+      '<div class="campus-card__head"><h2>' + esc(pc ? pc.hireTitle : "人才招聘") + '</h2>' +
+      '<span class="meta">' + esc(pc ? pc.hireMeta : "现有规则") + '</span></div>' +
+      '<p class="lede">' + esc(body) + '</p>' +
+      '<p class="meta">花费 ' + wan(14) + '，占用本季一次行动。</p>' +
       hireBtn + '</section>' +
       peopleRosterCard(state);
   }
@@ -4298,6 +4431,7 @@ function resolveHelp(state, teacher, ask) {
     const teachSpec = actionsCatalog(state).find(function (a) { return a.id === "teach"; });
     const canTeach = teachSpec && !(teachSpec.disabled || (teachSpec.once && state.used.teach) || state.funds < teachSpec.cost || state.actionsLeft <= 0);
     const focus = teachFocus(state);
+    const pc = Copy && Copy.peopleCopy ? Copy.peopleCopy(state) : null;
     const weak = (state.teachers || []).slice().sort(function (a, b) { return (a.talent || 0) - (b.talent || 0); }).slice(0, 4);
     const chairs = (state.teachers || []).filter(function (t) { return isChair(state, t); });
     const list = weak.length
@@ -4306,26 +4440,33 @@ function resolveHelp(state, teacher, ask) {
         return '<div class="people-train-row"><b>' + esc(t.name) + '</b><span>' + (meta ? meta.name : "") +
           ' · 才华 ' + t.talent + ' · ' + RANKS[t.rank] + '</span></div>';
       }).join("") + '</div>'
-      : '<p class="meta">名册还是空的。</p>';
+      : '<p class="meta">' + esc(pc ? pc.focusEmpty : "名册还是空的。") + '</p>';
     const chairLine = chairs.length
       ? chairs.map(function (t) { return esc(t.name); }).join("、")
-      : "还没有学科带头人";
+      : (pc ? pc.chairNone : "还没有学科带头人");
+    const trainBody = pc && pc.trainBody
+      ? pc.trainBody(focus.label || "教学", wan(6))
+      : ("没有单独的一对一培养指令。现有培养操作是「教学评估」：花费 " + wan(6) + "，一年一次，补" + (focus.label || "教学") + "。");
+    const trainCta = pc ? pc.trainCta : "去做教学评估";
     return '<section class="campus-card people-train-pane">' +
-      '<div class="campus-card__head"><h2>教师培养</h2><span class="meta">沿用教学评估</span></div>' +
-      '<p class="lede">没有单独的一对一培养指令。现有培养操作是「教学评估」：花费 ' + wan(6) + '，一年一次，补' +
-      esc(focus.label || "教学") + '。</p>' +
-      '<p class="meta">职称晋升仍在双年评审里处理，不在这里另开规则。</p>' +
+      '<div class="campus-card__head"><h2>' + esc(pc ? pc.trainTitle : "教师培养") + '</h2>' +
+      '<span class="meta">' + esc(pc ? pc.trainMeta : "沿用教学评估") + '</span></div>' +
+      '<p class="lede">' + esc(trainBody) + '</p>' +
       (UI
-        ? UI.button({ variant: "primary", label: "去做教学评估", cost: wan(6), disabled: !canTeach, attrs: { "data-act": "action", "data-arg": "teach" } })
-        : '<button class="primary" data-act="action" data-arg="teach"' + (canTeach ? "" : " disabled") + '>去做教学评估<em>' + wan(6) + '</em></button>') +
+        ? UI.button({ variant: "primary", label: trainCta, cost: wan(6), disabled: !canTeach, attrs: { "data-act": "action", "data-arg": "teach" } })
+        : '<button class="primary" data-act="action" data-arg="teach"' + (canTeach ? "" : " disabled") + '>' +
+          esc(trainCta) + '<em>' + wan(6) + '</em></button>') +
       '</section>' +
-      '<section class="campus-card"><div class="campus-card__head"><h2>优先关注</h2><span class="meta">才华偏低</span></div>' + list +
-      '<p class="meta">当前带头人：' + chairLine + '</p></section>' +
+      '<section class="campus-card"><div class="campus-card__head"><h2>' + esc(pc ? pc.focusTitle : "优先关注") + '</h2>' +
+      '<span class="meta">' + esc(pc ? pc.focusMeta : "才华偏低") + '</span></div>' + list +
+      '<p class="meta">' + esc(pc ? pc.chairPrefix : "当前带头人：") +
+      (chairs.length ? chairLine : esc(chairLine)) + '</p></section>' +
       peopleRosterCard(state);
   }
 
   function peopleAssessPane(state) {
     const m = peopleTeamMetrics(state);
+    const pc = Copy && Copy.peopleCopy ? Copy.peopleCopy(state) : null;
     const list = state.teachers || [];
     const bands = [
       ["成果够", list.filter(function (t) { return (t.talent || 0) >= 62; }).length],
@@ -4343,17 +4484,19 @@ function resolveHelp(state, teacher, ask) {
           esc(t.name) + '</button> · ' + (meta ? meta.name : "") + ' · ' + esc(dossier(t)) +
           ' · 忠诚 ' + t.loyalty + '</li>';
       }).join("") + '</ul>'
-      : '<p class="meta">这一档没有明显考核风险。</p>';
+      : '<p class="meta">' + esc(pc ? pc.riskEmpty : "这一档没有明显考核风险。") + '</p>';
     return '<section class="campus-card people-assess-pane">' +
-      '<div class="campus-card__head"><h2>教师考核</h2><span class="meta">按现有档案</span></div>' +
+      '<div class="campus-card__head"><h2>' + esc(pc ? pc.assessTitle : "教师考核") + '</h2>' +
+      '<span class="meta">' + esc(pc ? pc.assessMeta : "按现有档案") + '</span></div>' +
       '<div class="people-growth">' +
       '<div><span>平均才华</span><b>' + m.avgTalent + '</b></div>' +
       '<div><span>平均忠诚</span><b>' + m.avgLoyalty + '</b></div>' +
       '<div><span>骨干</span><b>' + m.stars + '</b></div>' +
       '<div><span>风险人数</span><b>' + risk.length + '</b></div></div>' +
       bandHtml +
-      '<p class="meta">档位沿用评审里的成果标准（才华 62 / 45）。</p></section>' +
-      '<section class="campus-card"><div class="campus-card__head"><h2>需要盯住的人</h2><span class="meta">把柄 / 账洞 / 低忠诚</span></div>' +
+      '<p class="meta">' + esc(pc ? pc.assessNote : "档位沿用评审里的成果标准（才华 62 / 45）。") + '</p></section>' +
+      '<section class="campus-card"><div class="campus-card__head"><h2>' + esc(pc ? pc.riskTitle : "需要盯住的人") + '</h2>' +
+      '<span class="meta">' + esc(pc ? pc.riskMeta : "把柄 / 账洞 / 低忠诚") + '</span></div>' +
       riskHtml + '</section>' +
       peopleRosterCard(state);
   }
@@ -4386,41 +4529,54 @@ function resolveHelp(state, teacher, ask) {
       '<ul class="gates">' + items.map(gateHtml).join("") + '</ul></section>';
   }
 
-  function applyStepper(readyCount, total) {
-    const ratio = total ? readyCount / total : 0;
-    const step = ratio >= 1 ? 2 : ratio >= 0.5 ? 1 : 0;
-    const labels = ["条件准备", "提交申报", "等待结果"];
-    return '<ol class="stepper">' + labels.map(function (label, i) {
-      const cls = i < step ? "done" : i === step ? "on" : "";
-      return '<li class="' + cls + '"><span>' + (i + 1) + '</span><em>' + label + '</em></li>';
-    }).join("") + '</ol>';
-  }
-
-  function projectCard(title, meta, items, cta) {
+  function projectCard(title, meta, items, cta, done) {
     const ok = items.filter(function (it) { return it.ok; }).length;
-    return '<section class="project-card">' +
-      '<div class="project-top"><div><h2>' + esc(title) + '</h2><p class="meta">' + esc(meta) + '</p></div>' +
-      '<span class="project-count">' + ok + '/' + items.length + '</span></div>' +
-      applyStepper(ok, items.length) +
-      '<ul class="gates compact">' + items.map(gateHtml).join("") + '</ul>' +
+    const total = items.length || 1;
+    const pct = Math.round((ok / total) * 100);
+    if (done) {
+      return '<section class="campus-card apply-project is-done">' +
+        '<div class="apply-project__top"><div><h2>' + esc(title) + '</h2>' +
+        '<p class="meta">' + esc(meta || "已经拿到。") + '</p></div>' +
+        '<span class="apply-project__count is-done">完成</span></div></section>';
+    }
+    return '<section class="campus-card apply-project">' +
+      '<div class="apply-project__top"><div><h2>' + esc(title) + '</h2>' +
+      '<p class="meta">' + esc(meta) + '</p></div>' +
+      '<span class="apply-project__count">' + ok + ' / ' + items.length + '</span></div>' +
+      '<div class="apply-project__bar"><i style="width:' + pct + '%"></i></div>' +
+      '<ul class="apply-project__gates">' + items.map(gateHtml).join("") + '</ul>' +
       (cta || "") + '</section>';
   }
 
-  function applyButton(state, label, cost) {
+  function pathReady(state, track) {
+    return pathGates(state, track).items.every(function (it) { return it.ok; });
+  }
+
+  function applyButton(state, label, cost, opts) {
+    opts = opts || {};
     const used = !!state.used.apply;
     const blocked = state.applyBlockYear === state.year;
+    const pending = !!state.scene;
+    const short = !!opts.short;
+    const disabled = used || blocked || pending || short || !!opts.disabled;
+    let shown = label;
+    if (pending) shown = "先回办事拍板";
+    else if (used) shown = opts.usedLabel || "今年已申报";
+    else if (short) shown = opts.shortLabel || "经费不足";
+    const showCost = !disabled && cost ? wan(cost) : "";
     if (UI) {
       return UI.button({
         variant: "accent",
-        label: label,
-        cost: cost ? wan(cost) : "",
-        disabled: used || blocked,
+        label: shown,
+        cost: showCost,
+        disabled: disabled,
         className: "apply-cta",
         attrs: { "data-act": "action", "data-arg": "apply" }
       });
     }
-    return '<button class="accent apply-cta" data-act="action" data-arg="apply"' + (used || blocked ? " disabled" : "") + '>' +
-      esc(label) + (cost ? '<em>' + wan(cost) + '</em>' : '') + '</button>';
+    return '<button type="button" class="accent apply-cta" data-act="action" data-arg="apply"' +
+      (disabled ? " disabled" : "") + '>' + esc(shown) +
+      (showCost ? '<em>' + showCost + '</em>' : '') + '</button>';
   }
 
   function applyHero(eyebrow, title, meta) {
@@ -4430,7 +4586,7 @@ function resolveHelp(state, teacher, ask) {
       '<p class="meta">' + esc(meta) + '</p></div></section>';
   }
 
-  function applyPathCard(title, tone, items, costHint) {
+  function applyPathCard(title, tone, items, costHint, goLabel) {
     const ok = items.filter(function (it) { return it.ok; }).length;
     const total = items.length;
     const pct = total ? Math.round((ok / total) * 100) : 0;
@@ -4440,8 +4596,8 @@ function resolveHelp(state, teacher, ask) {
       '<b class="apply-path__count">' + ok + ' <em>/ ' + total + '</em></b>' +
       '<div class="apply-path__bar"><i style="width:' + pct + '%"></i></div>' +
       '<p class="apply-path__hint">' + esc(costHint) + '</p>' +
-      '<button type="button" class="apply-path__go" data-act="apply-filter" data-arg="open">条件准备 ›</button>' +
-      '</article>';
+      '<button type="button" class="apply-path__go" data-act="apply-filter" data-arg="open">' +
+      esc(goLabel || "条件准备 ›") + '</button></article>';
   }
 
   function applyCompareGroups(academicItems, vocationalItems) {
@@ -4485,17 +4641,21 @@ function resolveHelp(state, teacher, ask) {
     }).filter(function (g) { return g.aList.length || g.vList.length; });
   }
 
-  function applyCompareSection(academic, vocational) {
+  function applyCompareSection(academic, vocational, ac) {
     const groups = applyCompareGroups(academic.items, vocational.items);
     const filtered = groups.filter(function (g) {
       if (applyGateFilter === "done") return g.status.kind === "done";
       if (applyGateFilter === "open") return g.status.kind !== "done";
       return true;
     });
-    const filters = [["all", "全部"], ["open", "未达成"], ["done", "已达成"]];
+    const filters = [
+      ["all", ac ? ac.filterAll : "全部"],
+      ["open", ac ? ac.filterOpen : "未达成"],
+      ["done", ac ? ac.filterDone : "已达成"]
+    ];
     return '<section class="campus-card card soft apply-compare">' +
       '<div class="apply-compare__head">' + icon("star", { tone: "gold", size: 18 }) +
-      '<h2>申报条件对比</h2></div>' +
+      '<h2>' + esc(ac ? ac.compareTitle : "申报条件对比") + '</h2></div>' +
       '<div class="apply-compare__filters" role="tablist">' + filters.map(function (f) {
         const on = applyGateFilter === f[0];
         return '<button type="button" role="tab" class="' + (on ? "is-on on" : "") +
@@ -4528,48 +4688,119 @@ function resolveHelp(state, teacher, ask) {
     if (state.tier <= 0) {
       const academic = pathGates(state, "academic");
       const vocational = pathGates(state, "vocational");
+      const aReady = pathReady(state, "academic");
+      const vReady = pathReady(state, "vocational");
+      const readyCount = (aReady ? 1 : 0) + (vReady ? 1 : 0);
+      const ac = Copy && Copy.applyCopy
+        ? Copy.applyCopy(state, { mode: "bachelor", readyCount: readyCount })
+        : null;
+      const eyebrow = ac
+        ? ac.eyebrow
+        : (readyCount > 0 ? ("当前可申报 · " + readyCount + "项") : "当前可准备 · 2条路线");
+      const ctaLabel = ac
+        ? (readyCount > 0 ? ac.ctaReady : ac.ctaGap)
+        : (readyCount > 0 ? "选择升本路线" : "查看升本缺口");
+      const aHint = ac && ac.pathAcademicHint
+        ? ac.pathAcademicHint(wan(academic.cost))
+        : ("经费 " + wan(academic.cost) + " · 可续冲 212");
+      const vHint = ac && ac.pathVocationalHint
+        ? ac.pathVocationalHint(wan(vocational.cost))
+        : ("经费 " + wan(vocational.cost) + " · 升完封顶");
       return pendingBanner(state) +
-        applyHero("当前可申报 · 2项", "升本项目", "提升办学层次，建设更高水平大学！") +
+        applyHero(eyebrow, ac ? ac.title : "升本项目", ac ? ac.meta : "提升办学层次，建设更高水平大学！") +
         '<div class="apply-paths">' +
-        applyPathCard("普通本科", "blue", academic.items, "经费 " + wan(academic.cost) + " · 可续冲 212") +
-        applyPathCard("职业本科", "orange", vocational.items, "经费 " + wan(vocational.cost) + " · 升完封顶") +
+        applyPathCard("普通本科", "blue", academic.items, aHint, ac ? ac.pathGo : null) +
+        applyPathCard("职业本科", "orange", vocational.items, vHint, ac ? ac.pathGo : null) +
         '</div>' +
-        applyCompareSection(academic, vocational) +
-        applyButton(state, "选择升本路线", 0);
+        applyCompareSection(academic, vocational, ac) +
+        applyButton(state, ctaLabel, 0);
     }
     if (state.track === "vocational") {
       const full = state.masterPoints.length >= 2;
+      let readyPoints = 0;
       const cards = MASTER_DEPTS.map(function (id) {
         if (state.masterPoints.indexOf(id) >= 0) {
-          return '<section class="project-card done"><div class="project-top"><div><h2>' + esc(deptName(id)) + '专业硕士点</h2><p class="meta">已经拿到。</p></div><span class="project-count">完成</span></div></section>';
+          const doneMeta = Copy && Copy.applyCopy
+            ? Copy.applyCopy(state, { mode: "master" }).cardDoneMeta
+            : "已经拿到。";
+          return projectCard(deptName(id) + "专业硕士点", doneMeta, [], "", true);
         }
         const g = masterGates(state, id);
-        return projectCard(g.title, "经费 " + wan(g.cost) + "。职业本科办满三年才能递。", g.items);
+        if (g.items.every(function (it) { return it.ok; }) && state.funds >= g.cost) readyPoints += 1;
+        const openMeta = Copy && Copy.applyCopy
+          ? Copy.applyCopy(state, { mode: "master" }).cardOpenMeta(wan(g.cost))
+          : ("经费 " + wan(g.cost) + "。职业本科办满三年才能递。");
+        return projectCard(g.title, openMeta, g.items);
       }).join("");
+      const ac = Copy && Copy.applyCopy
+        ? Copy.applyCopy(state, { mode: "master", readyCount: readyPoints })
+        : null;
+      const eyebrow = ac
+        ? ac.eyebrow
+        : (readyPoints > 0 ? ("当前可申报 · " + readyPoints + "点") : "当前可准备 · 专业硕士点");
+      const ctaLabel = ac
+        ? (readyPoints > 0 ? ac.ctaReady : ac.ctaGap)
+        : (readyPoints > 0 ? "申报专业硕士点" : "查看硕点缺口");
       return pendingBanner(state) +
-        applyHero("当前可申报", "专业硕士点", "职业本科封顶路径。最多两个点。") +
+        applyHero(eyebrow, ac ? ac.title : "专业硕士点", ac ? ac.meta : "职业本科封顶路径。最多两个点。") +
         cards +
-        (full ? '<p class="ready">两个点都在。</p>' : applyButton(state, "申报专业硕士点", 0));
+        (full
+          ? '<p class="ready apply-ready">' + esc(ac ? ac.fullReady : "两个点都在。") + '</p>'
+          : applyButton(state, ctaLabel, 0));
     }
     const g = gates(state);
     if (!g) {
+      const top = Copy && Copy.applyCopy ? Copy.applyCopy(state, { mode: "d9" }) : null;
       return pendingBanner(state) +
-        applyHero("申报中心", "D9", "已经进了 D9。剩下的是榜单，还有把柄会不会炸。");
+        applyHero(
+          top ? top.eyebrow : "申报中心",
+          top ? top.title : "D9",
+          top ? top.meta : "已经进了 D9。剩下的是榜单，还有把柄会不会炸。"
+        );
     }
     const prize = tierPrize(state.tier + 1);
     const ready = g.items.every(function (it) { return it.ok; });
     const missing = g.items.filter(function (it) { return !it.ok; }).length;
     const used = !!state.used.apply;
     const short = state.funds < g.cost;
-    const disabled = used || short;
-    let tip = '<p class="ready">已满足全部条件。过了：' + esc(prize.lines.join("，")) + '。</p>';
-    if (!ready) tip = '<p class="ready gap">还有 ' + missing + ' 项没到。</p>';
-    if (short) tip = '<p class="ready gap">经费不够，现在递不出去。</p>';
-    if (used) tip = '<p class="ready gap">今年已经申报过了。</p>';
+    const ac = Copy && Copy.applyCopy
+      ? Copy.applyCopy(state, {
+        mode: "ladder",
+        readyCount: ready ? 1 : 0,
+        missing: missing,
+        title: g.title,
+        prizeLines: prize.lines
+      })
+      : null;
+    const eyebrow = ac
+      ? ac.eyebrow
+      : (ready ? ("当前可申报 · " + g.title) : ("当前可准备 · 还差 " + missing + " 项"));
+    let tip = '<p class="ready apply-ready">' +
+      esc(ac ? ac.tipReady(prize.lines) : ("已满足全部条件。过了：" + prize.lines.join("，") + "。")) +
+      '</p>';
+    if (!ready) {
+      tip = '<p class="ready gap apply-ready">' +
+        esc(ac ? ac.tipGap(missing) : ("还有 " + missing + " 项没到。")) + '</p>';
+    }
+    if (short) {
+      tip = '<p class="ready gap apply-ready">' +
+        esc(ac ? ac.tipShort : "经费不够，现在递不出去。") + '</p>';
+    }
+    if (used) {
+      tip = '<p class="ready gap apply-ready">' +
+        esc(ac ? ac.tipUsed : "今年已经申报过了。") + '</p>';
+    }
+    const ctaLabel = ac
+      ? (ready ? ac.ctaReady(g.title) : ac.ctaGap(g.title))
+      : (ready ? ("申请" + g.title) : ("查看" + g.title + "缺口"));
     return pendingBanner(state) +
-      applyHero("当前可申报", g.title, "过了：" + prize.lines.join("，") + "。省里按这一档送评。") +
-      projectCard(g.title, "经费 " + wan(g.cost) + "。把柄不动。", g.items,
-        tip + '<button class="accent apply-cta" data-act="action" data-arg="apply"' + (disabled ? " disabled" : "") + '>申请' + esc(g.title) + '<em>' + wan(g.cost) + '</em></button>');
+      applyHero(eyebrow, g.title, ac ? ac.meta : ("过了：" + prize.lines.join("，") + "。省里按这一档送评。")) +
+      projectCard(
+        g.title,
+        ac && ac.cardMeta ? ac.cardMeta(wan(g.cost)) : ("经费 " + wan(g.cost) + "。把柄不动。"),
+        g.items,
+        tip + applyButton(state, ctaLabel, ready ? g.cost : 0, { short: ready && short })
+      );
   }
 
   function ladderHtml(state) {
@@ -4711,19 +4942,23 @@ function resolveHelp(state, teacher, ask) {
       '<div><span>学历出身</span><b>' + esc(t.school || "本校") + ' · ' + esc(t.degree || "本科") + '</b></div>' +
       '<div><span>擅长</span><b>' + esc(skill ? skill.name : "科研") + '</b></div>' +
       '</div>';
+    const pc = Copy && Copy.peopleCopy ? Copy.peopleCopy(state) : null;
     return '<section class="campus-card teacher-detail">' +
-      '<button type="button" class="teacher-detail-back" data-act="teacher-back">‹ 返回名册</button>' +
+      '<button type="button" class="teacher-detail-back" data-act="teacher-back">' +
+      esc(pc ? pc.detailBack : "‹ 返回名册") + '</button>' +
       '<div class="teacher-detail-hero">' +
       '<span class="avatar teacher-detail-avatar">' + teacherAvatarInner(t) + '</span>' +
       '<div><p class="eyebrow">' + esc(meta.name) + ' · ' + RANKS[t.rank] + '</p>' +
       '<h2>' + esc(t.name) + '</h2>' +
       '<div class="teacher-detail-badges">' + teacherBadges(state, t) + '</div></div></div>' +
       facts + bars +
-      '<p class="meta teacher-detail-note">出身与擅长会影响学校；把柄和账上的洞会在评审与巡察里露出来。培养走教学评估，晋升在双年评审里处理。</p>' +
-      '</section>';
+      '<p class="meta teacher-detail-note">' +
+      esc(pc ? pc.detailNote : "出身与擅长会影响学校；把柄和账上的洞会在评审与巡察里露出来。培养走教学评估，晋升在双年评审里处理。") +
+      '</p></section>';
   }
 
   function facultyHtml(state) {
+    const pc = Copy && Copy.peopleCopy ? Copy.peopleCopy(state) : null;
     const cards = [];
     DEPTS.forEach(function (meta) {
       const people = deptTeachers(state, meta.id).filter(function (t) {
@@ -4735,21 +4970,24 @@ function resolveHelp(state, teacher, ask) {
             (Assets.characters && Assets.characters["staff-female"]
               ? artImg(Assets.characters["staff-female"], "art-character", "空缺")
               : icon("teachers", { size: 18 })) +
-            '</span><div><b>' + meta.name + '</b><div class="meta">没有带头人，年底这个系会往下掉。</div></div></div>');
+            '</span><div><b>' + meta.name + '</b><div class="meta">' +
+            esc(pc ? pc.emptyDept : "没有带头人，年底这个系会往下掉。") +
+            '</div></div></div>');
         }
         return;
       }
       people.forEach(function (t) { cards.push(teacherCard(state, meta, t)); });
     });
-    if (!cards.length) return '<p class="meta people-empty">这一档现在没有人。</p>';
+    if (!cards.length) {
+      return '<p class="meta people-empty">' + esc(pc ? pc.emptyFilter : "这一档现在没有人。") + '</p>';
+    }
     return cards.join("");
   }
 
   function decisionHead(state) {
     if (!state.scene) return "";
     return '<p class="eyebrow">要你拍板</p><h1>' + esc(state.scene.title) + '</h1>' +
-      '<p class="lede">' + esc(state.scene.body) + '</p>' +
-      (state.scene.lines ? '<div class="reason"><b>这一年动过的数</b><ul class="log">' + state.scene.lines.map((line) => '<li>' + esc(line) + '</li>').join("") + '</ul></div>' : '');
+      '<p class="lede">' + esc(state.scene.body) + '</p>';
   }
 
   function bulletinSheet(state) {
@@ -4761,40 +4999,49 @@ function resolveHelp(state, teacher, ask) {
       if (line === "原因") { noting = true; return; }
       (noting ? notes : changes).push(line);
     });
-    const pct = Math.max(0, Math.min(100, state.score));
-    return '<section class="card campus-card campus-card--warm summary"><div class="sumtop"><div><p class="eyebrow">年度结算</p><h1>' + esc(state.scene.title) + '</h1>' +
+    const grade = scoreGrade(state.score);
+    return '<div class="bulletin-page">' +
+      '<section class="campus-card campus-card--warm bulletin-hero">' +
+      '<div class="bulletin-hero__top">' +
+      '<div><p class="eyebrow">年度结算</p><h1>' + esc(state.scene.title) + '</h1>' +
       '<p class="lede">' + esc(state.scene.body) + '</p></div>' +
-      '<div class="ring" style="--p:' + pct + '"><span><b>' + state.score + '</b><em>综合评分</em></span></div></div>' +
-      '<ul class="deltas">' + changes.map(deltaHtml).join("") + '</ul></section>' +
-      (notes.length
-        ? (UI
-          ? UI.card({ title: "原因", body: '<ul class="log">' + notes.map(function (line) { return '<li>' + esc(line) + '</li>'; }).join("") + '</ul>' })
-          : '<section class="card"><h2>原因</h2><ul class="log">' + notes.map(function (line) { return '<li>' + esc(line) + '</li>'; }).join("") + '</ul></section>')
+      '<div class="bulletin-score"><b>' + state.score + '<em>/100</em></b>' +
+      '<span class="bulletin-score__grade">' + grade + '</span>' +
+      '<p>综合评分</p></div></div></section>' +
+      (changes.length
+        ? '<section class="campus-card bulletin-deltas"><div class="bulletin-deltas__head">' +
+          icon("star", { tone: "gold", size: 16 }) + '<b>本年变化</b></div>' +
+          '<ul class="deltas">' + changes.map(deltaHtml).join("") + '</ul></section>'
         : '') +
-      decisionButtons(state);
+      (notes.length
+        ? '<section class="campus-card bulletin-notes"><div class="bulletin-deltas__head">' +
+          icon("book", { size: 16 }) + '<b>原因</b></div>' +
+          '<ul class="log">' + notes.map(function (line) { return '<li>' + esc(line) + '</li>'; }).join("") + '</ul></section>'
+        : '') +
+      decisionButtons(state) + '</div>';
   }
 
   function deltaHtml(line) {
     const up = /（\+/.test(line);
     const down = /（-/.test(line);
     const cls = up ? "up" : down ? "down" : "";
-    return '<li class="' + cls + '">' + esc(line) + '</li>';
+    return '<li class="' + cls + '"><span class="delta-mark" aria-hidden="true">' +
+      (up ? "↑" : down ? "↓" : "·") + '</span>' + esc(line) + '</li>';
   }
 
   function decisionButtons(state) {
     if (state.scene) {
       const only = state.scene.choices.length === 1;
-      return '<div class="choices event-choices">' + state.scene.choices.map((c) => {
-        if (UI && only) {
-          return UI.button({
-            variant: "primary",
-            html: "<b>" + esc(c.label) + "</b>" + (c.detail ? "<small>" + esc(c.detail) + "</small>" : ""),
-            attrs: { "data-act": "choice", "data-arg": c.id }
-          });
+      return '<div class="choices event-choices scene-choices">' + state.scene.choices.map(function (c) {
+        if (only) {
+          return '<button type="button" class="primary campus-btn campus-btn--primary scene-choice scene-choice--solo" data-act="choice" data-arg="' +
+            esc(c.id) + '"><b>' + esc(c.label) + '</b>' +
+            (c.detail ? '<small>' + esc(c.detail) + '</small>' : '') + '</button>';
         }
-        return '<button class="' + (only ? "primary campus-btn campus-btn--primary" : "choice-card campus-btn campus-btn--secondary") +
-          '" data-act="choice" data-arg="' + esc(c.id) + '"><b>' + esc(c.label) + '</b>' +
-          (c.detail ? '<small>' + esc(c.detail) + '</small>' : '') + '</button>';
+        return '<button type="button" class="choice-card scene-choice" data-act="choice" data-arg="' + esc(c.id) + '">' +
+          '<span class="scene-choice__copy"><b>' + esc(c.label) + '</b>' +
+          (c.detail ? '<small>' + esc(c.detail) + '</small>' : '') + '</span>' +
+          '<span class="scene-choice__go" aria-hidden="true">›</span></button>';
       }).join("") + '</div>';
     }
     return "";
@@ -4813,22 +5060,37 @@ function resolveHelp(state, teacher, ask) {
   function renderEnding(state) {
     const e = state.ending;
     const band = worldBand(rankScore(state));
-    const ranked = state.depts.slice().sort((a, b) => b.strength - a.strength);
+    const ranked = state.depts.slice().sort(function (a, b) { return b.strength - a.strength; });
     const best = ranked[0];
     const worst = ranked[ranked.length - 1];
-    return '<div class="shell intro">' + appBar("任期结算") +
-      '<section class="intro-hero"><div class="copy"><p class="eyebrow">本局已结束</p><h1>' + esc(e.title) + '</h1>' +
+    const grade = scoreGrade(state.score);
+    return '<div class="shell intro ending-page">' +
+      '<header class="intro-brand"><span class="intro-brand__mark">' + icon("cap", { size: 22 }) + '</span>' +
+      '<div><b>校长模拟器</b><small>任期结算</small></div></header>' +
+      '<section class="intro-hero">' +
+      '<div class="intro-hero__bg">' + (heroArt("home") || campusArt(false)) + '</div>' +
+      '<div class="intro-hero__copy"><p class="eyebrow">本局已结束</p><h1>' + esc(e.title) + '</h1>' +
       '<p class="lede">' + esc(e.text) + '</p></div>' +
-      (heroArt("principal") || campusArt(false)) + '</section>' +
-      '<section class="card summary"><div class="sumtop"><div><h2>' + esc(state.schoolName) + '</h2>' +
-      '<p class="meta">' + tierLabel(state) + ' · 寰球榜 ' + band.label + ' · 报考 ' + (state.enrollment == null ? "—" : state.enrollment) + '</p></div>' +
-      '<div class="ring" style="--p:' + Math.max(0, Math.min(100, state.score)) + '"><span><b>' + state.score + '</b><em>综合评分</em></span></div></div></section>' +
-      '<div class="rowcard"><span>收过的好处 <b>' + state.bribes + '</b></span><span class="side">被举报 ' + state.reports + ' 次</span></div>' +
-      '<section class="card"><h2>停在这一档</h2><p class="lede">' + esc(e.stamp) + '。最强的是' + deptName(best.id) + ' ' + best.strength + '，最短的是' + deptName(worst.id) + ' ' + worst.strength + '。</p>' +
+      '<div class="intro-hero__art">' + (heroArt("principal") || "") + '</div></section>' +
+      '<section class="campus-card ending-summary">' +
+      '<div class="ending-summary__top"><div><h2>' + esc(state.schoolName) + '</h2>' +
+      '<p class="meta">' + tierLabel(state) + ' · 寰球榜 ' + band.label + ' · 报考 ' +
+      (state.enrollment == null ? "—" : state.enrollment) + '</p></div>' +
+      '<div class="bulletin-score"><b>' + state.score + '<em>/100</em></b>' +
+      '<span class="bulletin-score__grade">' + grade + '</span><p>综合评分</p></div></div></section>' +
+      '<div class="ending-facts">' +
+      '<div class="campus-card ending-fact"><span>收过的好处</span><b>' + state.bribes + '</b></div>' +
+      '<div class="campus-card ending-fact"><span>被举报</span><b>' + state.reports + ' 次</b></div></div>' +
+      '<section class="campus-card intro-panel"><div class="intro-panel__head">' + icon("apply", { size: 18 }) +
+      '<h2>停在这一档</h2></div>' +
+      '<p class="lede">' + esc(e.stamp) + '。最强的是' + deptName(best.id) + ' ' + best.strength +
+      '，最短的是' + deptName(worst.id) + ' ' + worst.strength + '。</p>' +
       '<p class="fine">数字按离任那天固定。这一届不能再改。</p></section>' +
+      '<div class="intro-actions">' +
       (UI
         ? UI.button({ variant: "primary", label: "再当一届", attrs: { "data-act": "restart" } })
-        : '<button class="primary" data-act="restart">再当一届</button>') + '</div>';
+        : '<button class="primary campus-btn campus-btn--primary" data-act="restart">再当一届</button>') +
+      '</div></div>';
   }
 
   function statLine(k, v) { return '<div><span>' + k + '</span><b>' + v + '</b></div>'; }

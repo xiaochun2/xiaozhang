@@ -1,0 +1,55 @@
+{
+  "ok": true,
+  "data": {
+    "result": {
+      "fields": {
+        "package": {
+          "field_id": "package",
+          "filled": false,
+          "hint": "由 select-package 专用接口绑定（main 槽位），不可通过 saveChanges 修改",
+          "input_type": "select",
+          "label": "主包体",
+          "options": [
+            "apk",
+            "mini_app",
+            "spark",
+            "h5"
+          ],
+          "state": "suggested",
+          "value_labels": {
+            "apk": "APK",
+            "h5": "H5",
+            "mini_app": "Tap 小游戏",
+            "spark": "Spark"
+          }
+        },
+        "pc_package_id": {
+          "field_id": "pc_package_id",
+          "filled": false,
+          "hint": "由 select-package 专用接口绑定（windows 槽位），不可通过 saveChanges 修改",
+          "input_type": "select",
+          "label": "Windows 包体",
+          "state": "suggested"
+        }
+      },
+      "module_id": "package",
+      "revision": 1291170
+    },
+    "status": "completed"
+  },
+  "meta": {
+    "catalog": {
+      "source_version": "1.0.78",
+      "digest": "sha256:da5cb96c1964292a2f4da25934058f894292b833d802c7ed5b5bd8a1558a0c62",
+      "loaded_from": "embedded"
+    }
+  },
+  "_notice": {
+    "update_check": {
+      "command": "taptap-cli update --check --json",
+      "message": "Automatic update check could not complete; run: taptap-cli update --check --json",
+      "reason": "timeout",
+      "status": "unavailable"
+    }
+  }
+}

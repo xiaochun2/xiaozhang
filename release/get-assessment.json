@@ -1,0 +1,273 @@
+{
+  "ok": true,
+  "data": {
+    "result": {
+      "assessment": {
+        "confirmation_guarantee": "preflight_only_no_atomic_cas",
+        "declared_package_types": [
+          "h5"
+        ],
+        "is_level": false,
+        "material_summary": {
+          "proof_files": []
+        },
+        "package_conflict": false,
+        "package_types": [
+          "h5"
+        ],
+        "read_state": "complete",
+        "requirements": [
+          {
+            "domains": [
+              {
+                "domain": "app_audit",
+                "effective_status": "pending_upload",
+                "review_status": "pending_upload",
+                "source": "independent_qualification_audit",
+                "status": "pending_upload"
+              }
+            ],
+            "effective_approved": false,
+            "has_saved_material": false,
+            "read_state": "known",
+            "requirement": "unknown",
+            "status": "pending_upload",
+            "subject": "game-license",
+            "submit_blockers": [
+              "请先补齐并保存当前资质草稿"
+            ],
+            "submitted_fields": [],
+            "withdraw_blockers": [
+              "当前没有可撤回的审核单"
+            ],
+            "write_domain": "app_audit"
+          },
+          {
+            "domains": [
+              {
+                "domain": "mini_app",
+                "effective_status": "pending_upload",
+                "review_status": "pending_upload",
+                "source": "mini_app",
+                "status": "pending_upload"
+              }
+            ],
+            "effective_approved": false,
+            "has_saved_material": false,
+            "read_state": "known",
+            "requirement": "unknown",
+            "status": "pending_upload",
+            "subject": "icp-filing",
+            "submit_blockers": [
+              "当前包体的 ICP 备案 属于小游戏材料域，此应用资质接口不支持该材料域"
+            ],
+            "submitted_fields": [],
+            "withdraw_blockers": [
+              "qualification_domain_unsupported"
+            ],
+            "write_domain": "web"
+          },
+          {
+            "domains": [
+              {
+                "domain": "mini_app",
+                "effective_status": "pending_upload",
+                "source": "mini_app_privacy",
+                "status": "pending_upload"
+              }
+            ],
+            "effective_approved": false,
+            "has_saved_material": false,
+            "read_state": "known",
+            "requirement": "required",
+            "status": "pending_upload",
+            "subject": "privacy-compliance",
+            "submit_blockers": [
+              "当前包体的 隐私合规 属于小游戏材料域，此应用资质接口不支持该材料域"
+            ],
+            "submitted_fields": [],
+            "withdraw_blockers": [
+              "qualification_domain_unsupported"
+            ],
+            "write_domain": "web"
+          },
+          {
+            "domains": [
+              {
+                "domain": "app_audit",
+                "effective_status": "pending_upload",
+                "review_status": "pending_upload",
+                "source": "independent_qualification_audit",
+                "status": "pending_upload"
+              }
+            ],
+            "effective_approved": false,
+            "has_saved_material": false,
+            "read_state": "known",
+            "requirement": "optional",
+            "status": "pending_upload",
+            "subject": "anti-addiction",
+            "submit_blockers": [
+              "请确认已阅读防沉迷接入须知",
+              "请选择防沉迷接入状态",
+              "请说明是否接入中宣部实名验证"
+            ],
+            "submitted_fields": [],
+            "withdraw_blockers": [
+              "当前没有可撤回的审核单"
+            ],
+            "write_domain": "app_audit"
+          },
+          {
+            "domains": [
+              {
+                "domain": "app_audit",
+                "effective_status": "pending_upload",
+                "review_status": "pending_upload",
+                "source": "independent_qualification_audit",
+                "status": "pending_upload"
+              }
+            ],
+            "effective_approved": false,
+            "has_saved_material": false,
+            "read_state": "known",
+            "requirement": "required",
+            "status": "pending_upload",
+            "subject": "ai-declaration",
+            "submit_blockers": [
+              "请先补齐并保存当前资质草稿"
+            ],
+            "submitted_fields": [],
+            "withdraw_blockers": [
+              "当前没有可撤回的审核单"
+            ],
+            "write_domain": "app_audit"
+          },
+          {
+            "domains": [
+              {
+                "domain": "app_audit",
+                "effective_status": "pending_upload",
+                "review_status": "pending_upload",
+                "source": "independent_qualification_audit",
+                "status": "pending_upload"
+              }
+            ],
+            "effective_approved": false,
+            "has_saved_material": false,
+            "read_state": "known",
+            "requirement": "optional",
+            "status": "pending_upload",
+            "subject": "software-copyright",
+            "submit_blockers": [
+              "请先补齐并保存当前资质草稿"
+            ],
+            "submitted_fields": [],
+            "withdraw_blockers": [
+              "当前没有可撤回的审核单"
+            ],
+            "write_domain": "app_audit"
+          },
+          {
+            "domains": [
+              {
+                "domain": "app_audit",
+                "effective_status": "pending_upload",
+                "review_status": "pending_upload",
+                "source": "independent_qualification_audit",
+                "status": "pending_upload"
+              }
+            ],
+            "effective_approved": false,
+            "has_saved_material": false,
+            "read_state": "known",
+            "requirement": "unknown",
+            "status": "pending_upload",
+            "subject": "authorization-letters",
+            "submit_blockers": [
+              "请先补齐并保存当前资质草稿"
+            ],
+            "submitted_fields": [],
+            "withdraw_blockers": [
+              "当前没有可撤回的审核单"
+            ],
+            "write_domain": "app_audit"
+          },
+          {
+            "domains": [
+              {
+                "domain": "app_audit",
+                "effective_status": "pending_upload",
+                "review_status": "pending_upload",
+                "source": "independent_qualification_audit",
+                "status": "pending_upload"
+              }
+            ],
+            "effective_approved": false,
+            "has_saved_material": false,
+            "read_state": "known",
+            "requirement": "optional",
+            "status": "pending_upload",
+            "subject": "security-assessment",
+            "submit_blockers": [
+              "请先补齐并保存当前资质草稿"
+            ],
+            "submitted_fields": [],
+            "withdraw_blockers": [
+              "当前没有可撤回的审核单"
+            ],
+            "write_domain": "app_audit"
+          },
+          {
+            "domains": [],
+            "effective_approved": false,
+            "field_reject_reasons": {},
+            "has_saved_material": false,
+            "read_state": "known",
+            "requirement": "required",
+            "status": "pending_upload",
+            "subject": "age_grade",
+            "submit_blockers": [
+              "请先保存适龄分级 8、12 或 16"
+            ],
+            "submitted_fields": [],
+            "withdraw_blockers": [
+              "当前没有审核中的适龄资质"
+            ],
+            "write_domain": "app_audit"
+          }
+        ],
+        "submission_eligibility": {
+          "reason": "现有提交资格检查通过；正式提交仍重新校验",
+          "state": "eligible"
+        },
+        "target_source": "unpublished",
+        "unknown_facts": [
+          "is_internet_required",
+          "has_in_app_purchase",
+          "has_text_story_simulation",
+          "has_ai_content",
+          "has_ip_authorization"
+        ]
+      },
+      "snapshot": "610fdebdbfa6db3e28453b3c549050b5111f8275251bc4eae6f65da842a0a122",
+      "version": "V-20261117"
+    },
+    "status": "completed"
+  },
+  "meta": {
+    "catalog": {
+      "source_version": "1.0.78",
+      "digest": "sha256:da5cb96c1964292a2f4da25934058f894292b833d802c7ed5b5bd8a1558a0c62",
+      "loaded_from": "embedded"
+    }
+  },
+  "_notice": {
+    "update_check": {
+      "command": "taptap-cli update --check --json",
+      "message": "Automatic update check could not complete; run: taptap-cli update --check --json",
+      "reason": "timeout",
+      "status": "unavailable"
+    }
+  }
+}

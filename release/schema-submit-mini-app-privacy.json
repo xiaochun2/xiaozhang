@@ -1,0 +1,139 @@
+{
+  "ok": true,
+  "data": {
+    "_meta": {
+      "access_tokens": [],
+      "danger": true,
+      "envelope_version": "1.0",
+      "required_scopes": [],
+      "risk": "high-risk-write",
+      "scopes": []
+    },
+    "description": "复用已保存草稿及联系人，校验当前版本报告与快照后独立提审；不新建正文、不提交资料版本。",
+    "inputSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "app_id": {
+          "description": "游戏 ID",
+          "format": "int64",
+          "type": "integer"
+        },
+        "developer_id": {
+          "description": "厂商 ID",
+          "format": "int64",
+          "type": "integer"
+        },
+        "expected_snapshot": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "report_key": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "version_id": {
+          "format": "int64",
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "app_id",
+        "developer_id",
+        "expected_snapshot",
+        "report_key",
+        "version_id"
+      ],
+      "type": "object"
+    },
+    "name": "qualification submit-mini-app-privacy",
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "result": {
+          "properties": {
+            "audit_id": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "confirmation_guarantee": {
+              "description": "preflight_only_no_atomic_cas",
+              "type": "string"
+            },
+            "contacts_saved": {
+              "type": "boolean"
+            },
+            "effective_state": {
+              "type": "string"
+            },
+            "no_processing": {
+              "type": "boolean"
+            },
+            "personal_data_count": {
+              "format": "int32",
+              "type": "integer"
+            },
+            "retention_saved": {
+              "type": "boolean"
+            },
+            "review_state": {
+              "type": "string"
+            },
+            "sdk_count": {
+              "format": "int32",
+              "type": "integer"
+            },
+            "snapshot": {
+              "type": "string"
+            },
+            "submit_blockers": {
+              "description": "仅当前已保存声明的状态/内容阻塞项；为空不代表可直接提审，仍须所选 version_id 的有效扫描 report_key 及提交时校验",
+              "items": {
+                "description": "仅当前已保存声明的状态/内容阻塞项；为空不代表可直接提审，仍须所选 version_id 的有效扫描 report_key 及提交时校验",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "withdraw_blockers": {
+              "description": "独立隐私审核的撤回阻塞项；independent_review_required 表示当前不是可单独撤回的审核。version_review 属于资料版本审核，不属于独立撤回对象",
+              "items": {
+                "description": "独立隐私审核的撤回阻塞项；independent_review_required 表示当前不是可单独撤回的审核。version_review 属于资料版本审核，不属于独立撤回对象",
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "accepted"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "result",
+        "status"
+      ],
+      "type": "object"
+    }
+  },
+  "meta": {
+    "catalog": {
+      "source_version": "1.0.78",
+      "digest": "sha256:da5cb96c1964292a2f4da25934058f894292b833d802c7ed5b5bd8a1558a0c62",
+      "loaded_from": "embedded"
+    }
+  },
+  "_notice": {
+    "update_check": {
+      "command": "taptap-cli update --check --json",
+      "message": "Automatic update check could not complete; run: taptap-cli update --check --json",
+      "reason": "timeout",
+      "status": "unavailable"
+    }
+  }
+}

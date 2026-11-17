@@ -1,0 +1,39 @@
+{
+  "changes": [
+    {
+      "field_id": "description",
+      "value": "你是一所职业技术学院的校长。十四年任期，一年四季，一季一件事。\n\n带队伍、盖楼、盯账本，也要处理部门来信和学生舆论。升本可以走普通本科，继续冲 212、986、D9；也可以走职业本科，专攻专业硕士点和整合。\n\n把柄、评审、巡察会跟着决策回来。校园在转，你的选择会写进这所学校的档案。",
+      "expected": null
+    },
+    {
+      "field_id": "developer_message",
+      "value": "《大学校长模拟器》是一款日系治愈风校园经营游戏。\n我们想做的不是纯堆数值，而是让你在校长办公室里感到学校真的在运转：学科建设、基建、引进、申报，每件事都有起因和后续。\n欢迎试玩反馈。真夜工作室。",
+      "expected": null
+    },
+    {
+      "field_id": "promotion_text",
+      "value": "十四年任期，经营一所大学",
+      "expected": null
+    },
+    {
+      "field_id": "promotion_material_type",
+      "value": "BANNER_4",
+      "expected": null
+    },
+    {
+      "field_id": "author_name",
+      "value": "真夜工作室",
+      "expected": null
+    },
+    {
+      "field_id": "developer_type",
+      "value": "developer",
+      "expected": "developer"
+    },
+    {
+      "field_id": "publisher_name",
+      "value": "真夜工作室",
+      "expected": null
+    }
+  ]
+}
